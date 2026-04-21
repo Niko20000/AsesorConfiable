@@ -11,6 +11,32 @@ HORARIO       = "Lunes a viernes de 8:00 AM a 4:00 PM"
 NUMERO_ASESOR = "573505494401"
 
 # ─────────────────────────────────────────────
+# FILTRO DE GROSERÍAS — CAMBIO 1
+# El bot nunca usará estas palabras como nombres ni las repetirá
+# ─────────────────────────────────────────────
+
+PALABRAS_GROSERAS = {
+    # Groserías comunes en español/colombiano
+    "hijueputa","hijuepucha","gonorrea","parce","malparido","malparida",
+    "marica","maricon","puta","puto","mierda","culo","coño","verga","pene",
+    "vagina","culo","culero","idiota","imbecil","imbécil","estupido","estúpido",
+    "pendejo","pendeja","guevon","güevón","guevón","hp","hpta","hp","hptm",
+    "concha","chingado","cabron","cabrón","joder","coño","mamahuevo",
+    "mamaguevo","marihuano","drogadicto","ladrón","ladron","asesino",
+    "cerdo","cerda","perra","perro","bestia","animal","burro","burra",
+    "estupida","estúpida","retrasado","retrasada","loco","loca",
+    "maldito","maldita","desgraciado","desgraciada","infeliz",
+    # Insultos en inglés comunes
+    "fuck","shit","bitch","asshole","idiot","stupid","moron",
+}
+
+MSG_RESPUESTA_GROSER = (
+    "Entiendo que quizás estás frustrado, pero me gustaría ayudarte "
+    "de la mejor manera posible. 😊\n\n"
+    "Estoy aquí para servirte — cuéntame en qué puedo ayudarte hoy."
+)
+
+# ─────────────────────────────────────────────
 # TASAS VIGENTES — PROMEDIO M.V.
 # ─────────────────────────────────────────────
 
@@ -61,14 +87,12 @@ MSG_LISTA_PDFS = (
     "7️⃣ Tu Cuota Protegida\n"
     "8️⃣ Vida Individual Deudores BCS\n"
     "9️⃣ Protección Creciente\n\n"
-    "Escribe *no* u *omitir* si no necesitas ninguno por ahora. 😊"
+    "Escribe *no* u *omitir* si no necesitas ninguno. 😊"
 )
 
-# Oferta proactiva de PDFs — se muestra después de dar info de un seguro
 MSG_OFERTA_PDFS_PROACTIVA = (
     "¿Necesitas más información? 😊\n\n"
-    "Tengo folletos completos en PDF de todos nuestros seguros para que "
-    "puedas revisarlo con calma y tomar la mejor decisión:\n\n"
+    "Tengo folletos completos en PDF de todos nuestros seguros:\n\n"
     "1️⃣ Vida Protegida  •  2️⃣ Accidentes Personales\n"
     "3️⃣ Protección de Ahorro  •  4️⃣ Ingreso Protegido\n"
     "5️⃣ Seguro Exequial  •  6️⃣ Vida c/Devolución\n"
@@ -77,15 +101,12 @@ MSG_OFERTA_PDFS_PROACTIVA = (
     "Escribe el número y te lo envío ahora mismo. 📄"
 )
 
-# Oferta de PDFs al final del formulario (cross-sell seguros)
 MSG_OFERTA_PDFS_POST_SOLICITUD = (
     "📎 *¿Sabías que también protegemos tu crédito?*\n\n"
-    "Tenemos seguros que cubren tus cuotas en caso de desempleo, "
-    "incapacidad o cualquier imprevisto.\n\n"
-    "Si quieres información de alguno, escríbeme el número:\n"
-    "1️⃣ Vida Protegida  2️⃣ Accidentes  3️⃣ Protección de Ahorro\n"
-    "4️⃣ Ingreso Protegido  7️⃣ Tu Cuota Protegida  9️⃣ Protección Creciente\n\n"
-    "O escribe *no* para terminar. 😊"
+    "Tenemos seguros que cubren tus cuotas en caso de desempleo o incapacidad.\n\n"
+    "1️⃣ Vida Protegida  •  2️⃣ Accidentes  •  3️⃣ Protección de Ahorro\n"
+    "4️⃣ Ingreso Protegido  •  7️⃣ Tu Cuota Protegida  •  9️⃣ Protección Creciente\n\n"
+    "Escribe el número o *no* para terminar. 😊"
 )
 
 # ─────────────────────────────────────────────
@@ -135,7 +156,7 @@ PRESENTACION_VIVIENDA = (
     "Queremos acompañarte a lograrlo a través de nuestras líneas:\n\n"
     "✅ *Crédito de Vivienda:* Para comprar casa nueva o usada.\n"
     "✅ *Mejoramiento de Vivienda:* Para remodelar y dejar tu hogar como siempre lo soñaste.\n"
-    "✅ *Compra de Cartera de Vivienda:* Para mejorar las condiciones del crédito que tienes.\n\n"
+    "✅ *Compra de Cartera de Vivienda:* Para mejorar las condiciones del crédito actual.\n\n"
     "Usted pone el sueño y nosotros ponemos el respaldo financiero. 🏠"
 )
 
@@ -149,15 +170,16 @@ PRESENTACION_COMPRA_CARTERA = (
 )
 
 # ─────────────────────────────────────────────
-# SIMULACIÓN AUTOMÁTICA
+# SIMULACIÓN UNIVERSAL — CAMBIO 3
+# Funciona para créditos, seguros y ahorro
+# Se eliminó "total a pagar" e "intereses" para no agobiar al cliente
 # ─────────────────────────────────────────────
 
 def MSG_PRE_SIM_MONTO(nombre):
-    """Si tenemos el nombre, lo usamos. Si no, omitirlo (no decir 'cliente')."""
     intro = f"Con mucho gusto, *{nombre}*. 😊\n\n" if nombre else "Con mucho gusto. 😊\n\n"
     return (
         intro +
-        "Para que veas un ejemplo real de cómo te quedaría el crédito, "
+        "Para que veas un ejemplo real antes de continuar, "
         "cuéntame: ¿cuánto dinero necesitas aproximadamente?\n\n"
         "Puedes escribirlo como quieras: 5 millones, 500 mil, 2.000.000..."
     )
@@ -169,9 +191,9 @@ MSG_PRE_SIM_MESES = (
 )
 
 def MSG_PRE_SIM_RESULTADO(producto, monto_num, meses, tasa_mv, desde_ea, hasta_ea):
+    """Simulación de CRÉDITO — sin total_pagado ni total_intereses."""
     r = tasa_mv / 100
     cuota = monto_num * r / (1 - (1 + r) ** (-meses))
-    total_intereses = cuota * meses - monto_num
 
     def fmt(v):
         return f"${v:,.0f}".replace(",", ".")
@@ -191,18 +213,69 @@ def MSG_PRE_SIM_RESULTADO(producto, monto_num, meses, tasa_mv, desde_ea, hasta_e
         f"💼 Producto: {producto}\n"
         f"💰 Monto: {fmt(monto_num)}\n"
         f"📅 Plazo: {plazo_str}\n"
-        f"📈 Tasa promedio: {tasa_mv:.2f}% M.V.\n"
         f"──────────────────────────\n"
         f"💳 *Cuota mensual aprox:* *{fmt(cuota)}*\n"
-        f"💵 Total a pagar: {fmt(cuota * meses)}\n"
-        f"📉 Total en intereses: {fmt(total_intereses)}\n"
         f"──────────────────────────\n"
-        f"⚠️ _Simulación referencial con tasa promedio. "
+        f"⚠️ _Simulación referencial. Tasa promedio {tasa_mv:.2f}% M.V. "
         f"La tasa real puede estar entre {desde_ea:.2f}% y {hasta_ea:.2f}% E.A. "
         f"según tu perfil — podría ser incluso mejor._\n\n"
         f"¿Te gustaría aplicar a este crédito?\n"
         f"Responde *Sí* para continuar o *No* si prefieres esperar. 😊"
     )
+
+def MSG_SIM_SEGURO(nombre_seguro, plan_desde, plan_hasta):
+    """Ejemplo real para SEGUROS."""
+    return (
+        f"📊 *EJEMPLO REAL — {nombre_seguro.upper()}*\n"
+        f"──────────────────────────\n"
+        f"🛡️ Producto: {nombre_seguro}\n"
+        f"💰 Planes desde: *{plan_desde}*\n"
+        f"💰 Planes hasta: *{plan_hasta}*\n"
+        f"──────────────────────────\n"
+        f"✅ Póliza inmediata — sin exámenes médicos\n"
+        f"✅ Prima mensual con débito automático\n"
+        f"✅ Emitido por *Colmena Seguros*\n\n"
+        f"⚠️ _El valor exacto depende del plan y cobertura que elijas._\n\n"
+        f"¿Te gustaría que registremos tu interés para que un asesor "
+        f"te contacte con los detalles?\n"
+        f"Responde *Sí* para continuar o *No* si prefieres esperar. 😊"
+    )
+
+def MSG_SIM_AHORRO(monto_num, dias):
+    """Ejemplo real para CDT/AHORRO."""
+    tasa_ea = 0.0875  # Cuentamiga Digital 8.75% EA
+    rendimiento = monto_num * ((1 + tasa_ea) ** (dias / 365) - 1)
+
+    def fmt(v):
+        return f"${v:,.0f}".replace(",", ".")
+
+    return (
+        f"📊 *EJEMPLO REAL — AHORRO E INVERSIÓN*\n"
+        f"──────────────────────────\n"
+        f"💰 Monto a invertir: {fmt(monto_num)}\n"
+        f"📅 Plazo: {dias} días\n"
+        f"📈 Tasa referencial: 8.75% E.A. (Cuentamiga)\n"
+        f"──────────────────────────\n"
+        f"💵 *Rendimiento aprox:* *{fmt(rendimiento)}*\n"
+        f"──────────────────────────\n"
+        f"⚠️ _Simulación referencial. Los rendimientos varían según el "
+        f"producto y plazo que elijas._\n\n"
+        f"¿Te gustaría que un asesor te muestre las mejores opciones?\n"
+        f"Responde *Sí* para continuar o *No* si prefieres esperar. 😊"
+    )
+
+# Planes de seguros para simulación
+SEGUROS_PLANES = {
+    "1": {"nombre": "Vida Protegida",           "desde": "$15.990/mes", "hasta": "$40.990/mes"},
+    "2": {"nombre": "Accidentes Personales",     "desde": "$4.990",     "hasta": "$26.990"},
+    "3": {"nombre": "Protección de Ahorro",      "desde": "$5.000/mes", "hasta": "$16.000/mes"},
+    "4": {"nombre": "Tu Ingreso Protegido",      "desde": "$17.000/mes","hasta": "$35.000/mes"},
+    "5": {"nombre": "Seguro Exequial",           "desde": "$45.900",    "hasta": "$661.200"},
+    "6": {"nombre": "Vida con Devolución",       "desde": "$150.000",   "hasta": "$600.000"},
+    "7": {"nombre": "Tu Cuota Protegida",        "desde": "según plan", "hasta": "según plan"},
+    "8": {"nombre": "Vida Deudores BCS",         "desde": "según plan", "hasta": "según plan"},
+    "9": {"nombre": "Protección Creciente",      "desde": "$8.800",     "hasta": "$771.000"},
+}
 
 MSG_SIM_NO_APLICA = (
     "No hay ningún problema. 😊\n\n"
@@ -212,10 +285,11 @@ MSG_SIM_NO_APLICA = (
 
 MSG_CONFIRMAR_APLICAR = (
     "Disculpa, no te entendí bien. 😊\n\n"
-    "¿Deseas aplicar a este crédito?\n"
+    "¿Deseas continuar con el proceso?\n"
     "Responde *Sí* para continuar o *No* si prefieres esperar."
 )
 
+# Simulador independiente (cuando el cliente pide simular explícitamente)
 SIMULADOR_MENU = (
     "Con mucho gusto hago la simulación. 😊\n\n"
     "¿Para qué tipo de crédito quieres simular?\n\n"
@@ -369,6 +443,7 @@ SEGUROS_DETALLE = {
 
 # ─────────────────────────────────────────────
 # FORMULARIO — MENSAJES
+# CAMBIO 4: Aplica para TODOS los servicios
 # ─────────────────────────────────────────────
 
 MSG_PEDIR_NOMBRE  = "Para comenzar, ¿me podrías decir tu *nombre completo*? 😊"
@@ -406,7 +481,8 @@ def MSG_RESUMEN(d):
         f"🪪 Cédula: {d.get('cedula', 'N/A')}\n"
         f"📞 Celular: {d.get('celular', 'N/A')}\n"
         f"📧 Correo: {d.get('correo', 'N/A')}\n"
-        f"💰 Monto: {d.get('monto', 'N/A')}\n"
+        f"💼 Servicio: {d.get('servicio_nombre', d.get('servicio', 'N/A'))}\n"
+        f"💰 Monto/Plan: {d.get('monto', 'N/A')}\n"
         f"📊 Ingresos: {d.get('ingresos', 'N/A')}\n"
         f"🏢 Actividad: {d.get('actividad', 'N/A')}\n"
         f"⏳ Antigüedad: {d.get('antiguedad', 'N/A')}\n\n"
@@ -416,11 +492,10 @@ def MSG_RESUMEN(d):
 MSG_CORREGIR_DATOS = "Claro que sí 😊 Dime qué dato quieres corregir.\nEjemplo: *cambiar nombre*, *cambiar monto*, etc."
 
 # ─────────────────────────────────────────────
-# CIERRE DE SOLICITUD — 2 MENSAJES FINALES
+# CIERRE — 2 MENSAJES FINALES
 # ─────────────────────────────────────────────
 
 def MSG_CIERRE_CALIDO(nombre_corto):
-    """Mensaje 1: aviso cálido de que el asesor se comunica pronto."""
     saludo = f"¡*{nombre_corto}*," if nombre_corto else "¡Listo,"
     return (
         f"{saludo} tu solicitud ha sido registrada con éxito! 🎉\n\n"
@@ -432,7 +507,6 @@ def MSG_CIERRE_CALIDO(nombre_corto):
     )
 
 def MSG_RECIBO_FINAL(d):
-    """Mensaje 2: recibo completo para que el cliente lo reenvíe al asesor."""
     return (
         "📋 *RESUMEN DE TU SOLICITUD*\n"
         "──────────────────────────\n"
@@ -440,8 +514,8 @@ def MSG_RECIBO_FINAL(d):
         f"🪪 Cédula: {d.get('cedula', 'N/A')}\n"
         f"📞 Celular: {d.get('celular', 'N/A')}\n"
         f"📧 Correo: {d.get('correo', 'N/A')}\n"
-        f"💼 Producto: {d.get('servicio', 'N/A')}\n"
-        f"💰 Monto: {d.get('monto', 'N/A')}\n"
+        f"💼 Servicio: {d.get('servicio_nombre', d.get('servicio', 'N/A'))}\n"
+        f"💰 Monto/Plan: {d.get('monto', 'N/A')}\n"
         f"📊 Ingresos: {d.get('ingresos', 'N/A')}\n"
         f"🏢 Actividad: {d.get('actividad', 'N/A')}\n"
         f"⏳ Antigüedad: {d.get('antiguedad', 'N/A')}\n"
@@ -462,8 +536,8 @@ def MSG_RESUMEN_ASESOR(d, numero_limpio):
         f"📞 WhatsApp: +{numero_limpio}\n"
         f"📱 Celular: {d.get('celular', 'N/A')}\n"
         f"📧 Correo: {d.get('correo', 'N/A')}\n"
-        f"💼 Producto: {d.get('servicio', 'N/A')}\n"
-        f"💰 Monto: {d.get('monto', 'N/A')}\n"
+        f"💼 Servicio: {d.get('servicio_nombre', d.get('servicio', 'N/A'))}\n"
+        f"💰 Monto/Plan: {d.get('monto', 'N/A')}\n"
         f"📊 Ingresos: {d.get('ingresos', 'N/A')}\n"
         f"🏢 Actividad: {d.get('actividad', 'N/A')}\n"
         f"⏳ Antigüedad: {d.get('antiguedad', 'N/A')}\n"
@@ -472,6 +546,12 @@ def MSG_RESUMEN_ASESOR(d, numero_limpio):
     )
 
 MSG_ERROR_TECNICO = "Disculpa, tuve un inconveniente técnico. Un asesor te contactará pronto. 🙏"
+
+# Mensaje para audios — CAMBIO 7
+MSG_AUDIO_NO_SOPORTADO = (
+    "¡Hola! Disculpa, no tengo la capacidad de escuchar audios por el momento. 😊\n\n"
+    "Pero con mucho gusto te atiendo por texto — cuéntame en qué puedo ayudarte."
+)
 
 # ─────────────────────────────────────────────
 # PROMPT DEL SISTEMA
@@ -484,8 +564,8 @@ SALUDO INICIAL:
 "¡Hola! Buen día 😊 Mi nombre es Alex Martínez y soy Asesor Integral del Banco Caja Social.
 ¿Con quién tengo el gusto? Me gustaría conocerte y saber en qué puedo ayudarte hoy."
 
-CUANDO SEPAS EL NOMBRE DEL CLIENTE, úsalo naturalmente y pregunta qué está buscando.
-IMPORTANTE: NUNCA uses "cliente" como nombre. Si no sabes el nombre, no lo uses.
+REGLA IMPORTANTE: NUNCA uses "cliente" como nombre. Si no sabes el nombre, no lo uses.
+REGLA IMPORTANTE: Si el cliente usa groserías o insultos, responde con calma y amabilidad, nunca repitas ni uses esas palabras.
 
 PRODUCTOS:
 
@@ -513,13 +593,12 @@ Invitación: {SEGUROS_INVITACION}
 DOCUMENTOS PDF DISPONIBLES:
 Tenemos folletos PDF para todos los seguros (números 1 al 9).
 Si el cliente pregunta por documentos, PDFs, folletos, catálogo o lista → responde: [MOSTRAR_PDFS]
-Si el cliente escribe un número del 1 al 9, el sistema envía automáticamente la info y el PDF.
 
 OFICINA: 📍 {DIRECCION} | 🕒 {HORARIO}
 
 REGLAS:
 1. Saluda como Alex Martínez del Banco Caja Social.
-2. Usa el nombre del cliente naturalmente. NUNCA uses "cliente" si no sabes el nombre.
+2. Usa el nombre del cliente naturalmente. NUNCA uses "cliente".
 3. Cuando diga su nombre, salúdalo con calidez y pregunta qué busca.
 4. Usa frases cálidas: "con mucho gusto", "es un placer", "no te preocupes".
 5. Máximo 4 líneas por respuesta. Ve al punto.
@@ -528,9 +607,14 @@ REGLAS:
 8. Si ingresos bajos o sin empleo: dile que igual se evalúa con mucho gusto.
 9. Para CRÉDITOS: presenta cálidamente y termina con [INICIAR_CREDITO:tipo]
    tipos: libre_inversion, libranza, vivienda, compra_cartera
-10. Para SIMULACIÓN: [INICIAR_SIMULADOR]
-11. Para PDFs/documentos: [MOSTRAR_PDFS]
-12. Para AHORRO/SEGUROS: invita a la oficina.
+10. Para SEGUROS (cuando quiera uno): presenta y termina con [INICIAR_SEGURO:numero]
+    donde numero es el número del seguro (1-9)
+11. Para AHORRO/INVERSIÓN (cuando quiera aplicar): termina con [INICIAR_AHORRO]
+12. Para SIMULACIÓN explícita: [INICIAR_SIMULADOR]
+13. Para PDFs/documentos: [MOSTRAR_PDFS]
+14. Si el cliente envía audio: dile amablemente que no puedes escuchar audios.
+15. Si el cliente usa groserías: responde con calma y amabilidad, nunca las repitas.
+16. No Seas Demaciado agoviante con tu amabilidad ,se directo y amable.
 
 DETECTA crédito: quiero, necesito, préstamo, crédito, libranza, cartera, plata, dinero, cuotas, financiación.
 DETECTA simulación: simular, calcular, cuánto pago, cuánto sería, cuánto me sale.
