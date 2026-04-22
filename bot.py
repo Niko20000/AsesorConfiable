@@ -1,14 +1,12 @@
 """
 bot.py — Banco Caja Social / Alex Martínez
 
-Cambios aplicados:
-1. Filtro de groserías — nunca se toman como nombre ni se repiten
-2. Startup delay fix — reintento si Python no está listo
-3. Simulación universal — créditos, seguros y ahorro. Sin total_pagado/intereses
-4. Formulario para TODOS los servicios
-5. Fix "5 millones" — orden correcto en parsear_monto
-6. Calidez mantenida
-7. Manejo de audios — respuesta amable
+Cambios:
+1. Menú inicial después del saludo (info vs contacto directo)
+2. Menús numerados para productos y actividad
+3. Plazos correctos por tipo de crédito
+4. Antigüedad solo en años
+5. Microcrédito para independientes
 """
 
 import os
@@ -25,24 +23,29 @@ from mensajes import (
     TASAS_MV, MAPA_SERVICIO_TASA,
     SEGUROS_DETALLE, PDF_SEGUROS, SEGUROS_PLANES,
     MSG_LISTA_PDFS, MSG_OFERTA_PDFS_POST_SOLICITUD, MSG_OFERTA_PDFS_PROACTIVA,
-    MSG_BIENVENIDA_NOMBRE,
-    MSG_PRE_SIM_MONTO, MSG_PRE_SIM_MESES, MSG_PRE_SIM_RESULTADO,
-    MSG_SIM_SEGURO, MSG_SIM_AHORRO,
+    MSG_BIENVENIDA_NOMBRE, MSG_MENU_INICIAL, MSG_MENU_PRODUCTOS,
+    MSG_CONTACTO_DIRECTO, MENU_OPCIONES,
+    MSG_PRE_SIM_MONTO, MSG_PRE_SIM_MESES, MSG_PRE_SIM_MESES_DEFAULT,
+    MSG_PRE_SIM_RESULTADO, MSG_SIM_SEGURO, MSG_SIM_AHORRO,
     MSG_SIM_NO_APLICA, MSG_CONFIRMAR_APLICAR,
-    SIMULADOR_MENU, MSG_SIMULADOR_MONTO, MSG_SIMULADOR_MESES,
+    SIMULADOR_MENU, MSG_SIMULADOR_MONTO, MSG_SIMULADOR_MESES_BASE,
     MSG_RESULTADO_SIMULACION, MSG_MESES_INVALIDOS,
     MSG_SIMULADOR_PROD_INVALIDO,
     MSG_PEDIR_NOMBRE, MSG_RETRY_NOMBRE,
     MSG_PEDIR_CEDULA, MSG_RETRY_CEDULA,
     MSG_PEDIR_INGRESOS, MSG_RETRY_INGRESOS,
-    MSG_PEDIR_ACTIVIDAD, MSG_RETRY_ACTIVIDAD,
-    MSG_PEDIR_ANTIGUEDAD, MSG_CONFIRMAR_ANTIGUEDAD,
+    MSG_PEDIR_ACTIVIDAD, MSG_RETRY_ACTIVIDAD, ACTIVIDAD_OPCIONES,
+    MSG_PEDIR_ANTIGUEDAD, MSG_RETRY_ANTIGUEDAD, MSG_CONFIRMAR_ANTIGUEDAD,
     MSG_PEDIR_CORREO, MSG_RETRY_CORREO,
     MSG_PEDIR_CELULAR, MSG_RETRY_CELULAR,
     MSG_RESUMEN, MSG_CORREGIR_DATOS,
     MSG_CIERRE_CALIDO, MSG_RECIBO_FINAL, MSG_RESUMEN_ASESOR,
     MSG_ERROR_TECNICO, MSG_AUDIO_NO_SOPORTADO,
     MSG_RESPUESTA_GROSER, PALABRAS_GROSERAS,
+    PRESENTACION_LIBRE_INVERSION, PRESENTACION_LIBRANZA,
+    PRESENTACION_VIVIENDA, PRESENTACION_COMPRA_CARTERA,
+    PRESENTACION_MICROCREDITO, AHORRO_PRESENTACION,
+    SEGUROS_PRESENTACION,
 )
 
 load_dotenv()
@@ -121,6 +124,7 @@ NO_ES_NOMBRE = {
     "bien","perfecto","correcto","omitir","nada","nunca","siempre","todo","algo",
     "dame","quiero","necesito","haber","ver","saber","tengo","tiene","tenemos",
     "un","una","el","la","los","las","de","del","al","por","para","con","sin",
+    "1","2","3","4","5","6","7","8","9","0",
 }
 
 PALABRAS_NO_NOMBRE = {
@@ -129,10 +133,10 @@ PALABRAS_NO_NOMBRE = {
     "credito","crédito","prestamo","préstamo","vivienda","libranza","cartera",
     "simulacion","simulación","seguro","ahorro","inversion","inversión",
     "pdf","lista","documento","información","informacion","ayuda","folleto",
+    "microcredito","microcrédito",
     "el","la","los","las","un","una","de","del","al","por","para","con","sin",
     "que","y","o","es","son","hay","puede","a","e","ni","pero","mas","más",
-    "banco","caja","social","asesor","agente","persona","señor","señora",
-    "libre","compra","mejoramiento","hipotecario",
+    "banco","caja","social","asesor","agente","libre","compra","mejoramiento",
 }
 
 CONFIRMACIONES = {"si","sí","yes","s","correcto","ok","claro","todo bien",
@@ -141,10 +145,8 @@ NEGACIONES     = {"no","nel","nope","no gracias","no quiero","en otro momento",
                   "despues","después","luego","ahora no"}
 
 def contiene_groseria(texto):
-    """True si el texto contiene alguna grosería."""
     t = texto.lower().strip()
-    palabras = re.findall(r'\w+', t)
-    for p in palabras:
+    for p in re.findall(r'\w+', t):
         if p in PALABRAS_GROSERAS:
             return True
     return False
@@ -156,7 +158,6 @@ def parece_nombre(texto):
         return False
     if t in NO_ES_NOMBRE:
         return False
-    # Rechazar groserías como nombres
     if contiene_groseria(t):
         return False
     for p in palabras:
@@ -182,27 +183,37 @@ def parece_celular(texto):
     t = re.sub(r'[\s\+\-\(\)]', '', texto.strip())
     return len(t) >= 7 and sum(c.isdigit() for c in t) >= len(t) * 0.8
 
-def parece_actividad(texto):
+def parece_actividad_libre(texto):
+    """True si el texto parece una actividad escrita libremente (no número)."""
     t = texto.strip().lower()
     if len(t) < 3:
         return False
     if t in CONFIRMACIONES or t in NEGACIONES:
         return False
+    if t.isdigit():
+        return False
     return True
 
+def parsear_anios(texto):
+    """Extrae años de un texto. Solo acepta años (no meses)."""
+    t = texto.lower().strip()
+    # Buscar número
+    match = re.search(r'(\d+(?:\.\d+)?)', t)
+    if not match:
+        return None
+    num = float(match.group(1))
+    # Si dice "meses" o "mes", rechazar y pedir años
+    if "mes" in t:
+        return None
+    return int(num)
+
 # ─────────────────────────────────────────────
-# UTILIDADES — CAMBIO 5: Fix "5 millones"
+# UTILIDADES
 # ─────────────────────────────────────────────
 
 def parsear_monto(texto):
-    """
-    Convierte texto a (formato, número).
-    FIX: reemplaza 'millones' ANTES de 'millon' para evitar bug de parseo.
-    Ejemplos: '5 millones' → $5.000.000, '500 mil' → $500.000
-    """
     t = texto.lower().strip()
     try:
-        # IMPORTANTE: plurales primero, luego singulares
         t = t.replace("millones", "000000").replace("millónes", "000000")
         t = t.replace("millon",   "000000").replace("millón",   "000000")
         t = t.replace("mil", "000")
@@ -233,17 +244,27 @@ def _extraer_nombre_historial(historial):
     for msg in historial:
         if msg.get("role") == "user":
             c = msg.get("content","").strip()
-            palabras = c.split()
-            if 1 <= len(palabras) <= 4 and parece_nombre(c):
+            if 1 <= len(c.split()) <= 4 and parece_nombre(c):
                 return c
     return ""
+
+def iniciar_credito(telefono, tipo, nombre_en_conv, presentacion, servicio_nombre):
+    """Muestra presentación del crédito y arranca la simulación."""
+    datos_nuevos = {
+        "servicio": tipo,
+        "servicio_nombre": servicio_nombre,
+        "nombre": nombre_en_conv,
+    }
+    set_estado(telefono, "pre_sim_monto", datos_nuevos)
+    nombre_msg = nombre_en_conv.split()[0] if nombre_en_conv else ""
+    return presentacion + "\n\n" + MSG_PRE_SIM_MONTO(nombre_msg)
 
 # ─────────────────────────────────────────────
 # LÓGICA PRINCIPAL
 # ─────────────────────────────────────────────
 
 def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
-    # CAMBIO 7: Manejo de audios
+
     if es_audio:
         guardar_mensaje(telefono, "user", "[AUDIO]")
         guardar_mensaje(telefono, "assistant", MSG_AUDIO_NO_SOPORTADO)
@@ -257,19 +278,21 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
     guardar_mensaje(telefono, "user", texto)
     tl = texto.lower().strip()
 
-    # CAMBIO 1: Filtro de groserías — responde con calma, no repite la grosería
+    # Filtro de groserías
     if contiene_groseria(tl):
         guardar_mensaje(telefono, "assistant", MSG_RESPUESTA_GROSER)
         return {"reply": MSG_RESPUESTA_GROSER}
 
-    # ── Detectar petición de PDFs fuera del formulario ──
+    # Detectar PDFs fuera del formulario
     etapas_formulario = {
+        "menu_inicial","esperando_menu_productos",
         "pre_sim_monto","pre_sim_meses","pre_sim_confirmar",
-        "pre_sim_seguro_confirmar","pre_sim_ahorro_monto","pre_sim_ahorro_dias",
-        "pre_sim_ahorro_confirmar",
+        "pre_sim_seguro_confirmar","pre_sim_ahorro_monto",
+        "pre_sim_ahorro_dias","pre_sim_ahorro_confirmar",
         "sim_eligiendo_producto","sim_pidiendo_monto","sim_pidiendo_meses",
         "preguntando_nombre","preguntando_cedula","preguntando_ingresos",
-        "preguntando_actividad","preguntando_antiguedad","confirmando_antiguedad",
+        "preguntando_actividad","confirmando_actividad",
+        "preguntando_antiguedad","confirmando_antiguedad",
         "preguntando_monto_form","preguntando_correo","preguntando_celular",
         "confirmando_resumen",
     }
@@ -280,29 +303,102 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
         return {"reply": MSG_LISTA_PDFS}
 
     # ══════════════════════════════════════════
-    # SIMULACIÓN PREVIA — CRÉDITOS
+    # MENÚ INICIAL — CAMBIO 1
     # ══════════════════════════════════════════
 
-    if etapa == "pre_sim_monto":
+    if etapa == "menu_inicial":
+        if tl == "1" or "información" in tl or "info" in tl or "productos" in tl:
+            set_estado(telefono, "esperando_menu_productos", datos)
+            respuesta = MSG_MENU_PRODUCTOS
+        elif tl == "2" or "asesor" in tl or "contactar" in tl or "hablar" in tl:
+            set_estado(telefono, "inicio", datos)
+            respuesta = MSG_CONTACTO_DIRECTO
+        else:
+            respuesta = MSG_MENU_INICIAL
+
+    # ══════════════════════════════════════════
+    # MENÚ DE PRODUCTOS — CAMBIO 2
+    # ══════════════════════════════════════════
+
+    elif etapa == "esperando_menu_productos":
+        nombre_en_conv = datos.get("nombre", "")
+        opcion = MENU_OPCIONES.get(tl)
+
+        if opcion == "credito_libre":
+            respuesta = iniciar_credito(
+                telefono, "libre_inversion", nombre_en_conv,
+                PRESENTACION_LIBRE_INVERSION, "Crédito de Libre Inversión"
+            )
+        elif opcion == "credito_libranza":
+            respuesta = iniciar_credito(
+                telefono, "libranza", nombre_en_conv,
+                PRESENTACION_LIBRANZA, "Crédito de Libranza"
+            )
+        elif opcion == "credito_vivienda":
+            respuesta = iniciar_credito(
+                telefono, "vivienda", nombre_en_conv,
+                PRESENTACION_VIVIENDA, "Crédito de Vivienda"
+            )
+        elif opcion == "compra_cartera":
+            respuesta = iniciar_credito(
+                telefono, "compra_cartera", nombre_en_conv,
+                PRESENTACION_COMPRA_CARTERA, "Compra de Cartera"
+            )
+        elif opcion == "microcredito":
+            respuesta = iniciar_credito(
+                telefono, "microcredito", nombre_en_conv,
+                PRESENTACION_MICROCREDITO, "Microcrédito"
+            )
+        elif opcion == "ahorro":
+            set_estado(telefono, "pre_sim_ahorro_monto", {
+                "servicio": "ahorro_inversion",
+                "servicio_nombre": "Ahorro e Inversión",
+                "nombre": nombre_en_conv,
+            })
+            nombre_msg = nombre_en_conv.split()[0] if nombre_en_conv else ""
+            intro = f"Con mucho gusto, *{nombre_msg}*. 😊\n\n" if nombre_msg else "Con mucho gusto. 😊\n\n"
+            respuesta = AHORRO_PRESENTACION + "\n\n" + intro + "¿Cuánto dinero tienes para invertir?\n\nEjemplo: 5 millones, 500 mil..."
+        elif opcion == "seguros":
+            set_estado(telefono, "inicio", datos)
+            respuesta = SEGUROS_PRESENTACION
+        elif opcion == "simulador":
+            set_estado(telefono, "sim_eligiendo_producto", {})
+            respuesta = SIMULADOR_MENU
+        else:
+            respuesta = "Escribe el número de la opción (1 al 8). 😊\n\n" + MSG_MENU_PRODUCTOS
+
+    # ══════════════════════════════════════════
+    # SIMULACIÓN — CRÉDITOS
+    # ══════════════════════════════════════════
+
+    elif etapa == "pre_sim_monto":
         texto_fmt, num = parsear_monto(texto)
         if num and num > 0:
             datos["monto"]     = texto_fmt
             datos["monto_num"] = num
             set_estado(telefono, "pre_sim_meses", datos)
-            respuesta = MSG_PRE_SIM_MESES
+            # Mostrar plazo correcto según el tipo de servicio
+            tasa_info = obtener_tasa(datos.get("servicio","libre_inversion"))
+            min_m = tasa_info.get("min_meses", 12)
+            max_m = tasa_info.get("max_meses", 60)
+            respuesta = MSG_PRE_SIM_MESES(min_m, max_m)
         else:
-            respuesta = "No pude entender el monto. 😊\n\nEscríbelo así: 5 millones, 500 mil, 2.000.000..."
+            respuesta = "No pude entender el monto. 😊\n\nEjemplo: 5 millones, 500 mil, 2.000.000..."
 
     elif etapa == "pre_sim_meses":
         meses = parsear_meses(texto)
-        if meses and 10 <= meses <= 240:
-            tasa_info = obtener_tasa(datos.get("servicio","libre_inversion"))
+        tasa_info = obtener_tasa(datos.get("servicio","libre_inversion"))
+        min_m = tasa_info.get("min_meses", 12)
+        max_m = tasa_info.get("max_meses", 60)
+        if meses and min_m <= meses <= max_m:
             respuesta = MSG_PRE_SIM_RESULTADO(
                 tasa_info["nombre"], datos["monto_num"], meses,
                 tasa_info["tasa_mv"], tasa_info["desde_ea"], tasa_info["hasta_ea"]
             )
             datos["meses_sim"] = meses
             set_estado(telefono, "pre_sim_confirmar", datos)
+        elif meses:
+            respuesta = f"Para este producto el plazo es de *{min_m} a {max_m} meses*. 😊\n\nEjemplo: {min_m}, {min_m*2}..."
         else:
             respuesta = MSG_MESES_INVALIDOS
 
@@ -317,12 +413,12 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
                 respuesta = MSG_PEDIR_CEDULA(nombre_guardado.split()[0])
             else:
                 set_estado(telefono, "preguntando_nombre", datos)
-                respuesta = "¡Perfecto! Empecemos. 😊\n\n" + MSG_PEDIR_NOMBRE
+                respuesta = "¡Perfecto! 😊\n\n" + MSG_PEDIR_NOMBRE
         else:
             respuesta = MSG_CONFIRMAR_APLICAR
 
     # ══════════════════════════════════════════
-    # SIMULACIÓN PREVIA — SEGUROS (CAMBIO 3)
+    # SIMULACIÓN — SEGUROS
     # ══════════════════════════════════════════
 
     elif etapa == "pre_sim_seguro_confirmar":
@@ -336,12 +432,12 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
                 respuesta = MSG_PEDIR_CEDULA(nombre_guardado.split()[0])
             else:
                 set_estado(telefono, "preguntando_nombre", datos)
-                respuesta = "¡Perfecto! Empecemos. 😊\n\n" + MSG_PEDIR_NOMBRE
+                respuesta = "¡Perfecto! 😊\n\n" + MSG_PEDIR_NOMBRE
         else:
             respuesta = MSG_CONFIRMAR_APLICAR
 
     # ══════════════════════════════════════════
-    # SIMULACIÓN PREVIA — AHORRO (CAMBIO 3)
+    # SIMULACIÓN — AHORRO
     # ══════════════════════════════════════════
 
     elif etapa == "pre_sim_ahorro_monto":
@@ -350,12 +446,9 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             datos["monto"]     = texto_fmt
             datos["monto_num"] = num
             set_estado(telefono, "pre_sim_ahorro_dias", datos)
-            respuesta = (
-                "¿A cuántos días te gustaría invertirlo? 📅\n\n"
-                "Ejemplo: 60, 90, 180, 360 días..."
-            )
+            respuesta = "¿A cuántos días te gustaría invertirlo? 📅\n\nEjemplo: 60, 90, 180, 360 días..."
         else:
-            respuesta = "No pude entender el monto. 😊\n\nEscríbelo así: 5 millones, 500 mil, 2.000.000..."
+            respuesta = "No pude entender el monto. 😊\n\nEjemplo: 5 millones, 500 mil..."
 
     elif etapa == "pre_sim_ahorro_dias":
         try:
@@ -365,9 +458,9 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
                 datos["dias_sim"] = dias
                 set_estado(telefono, "pre_sim_ahorro_confirmar", datos)
             else:
-                respuesta = "Por favor escribe un número entre *30 y 540* días. 😊\nEjemplo: 60, 90, 180, 360..."
+                respuesta = "Por favor escribe entre *30 y 540* días. 😊\nEjemplo: 60, 90, 180, 360..."
         except:
-            respuesta = "Por favor escribe el número de días. 😊\nEjemplo: 60, 90, 180, 360..."
+            respuesta = "Escribe el número de días. 😊\nEjemplo: 60, 90, 180..."
 
     elif etapa == "pre_sim_ahorro_confirmar":
         if tl in NEGACIONES:
@@ -380,7 +473,7 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
                 respuesta = MSG_PEDIR_CEDULA(nombre_guardado.split()[0])
             else:
                 set_estado(telefono, "preguntando_nombre", datos)
-                respuesta = "¡Perfecto! Empecemos. 😊\n\n" + MSG_PEDIR_NOMBRE
+                respuesta = "¡Perfecto! 😊\n\n" + MSG_PEDIR_NOMBRE
         else:
             respuesta = MSG_CONFIRMAR_APLICAR
 
@@ -403,25 +496,31 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             datos["sim_monto_fmt"] = texto_fmt
             datos["sim_monto_num"] = num
             set_estado(telefono, "sim_pidiendo_meses", datos)
-            respuesta = MSG_SIMULADOR_MESES
+            key = datos.get("sim_producto_key","1")
+            info = TASAS_MV[key]
+            respuesta = MSG_PRE_SIM_MESES(info["min_meses"], info["max_meses"])
         else:
-            respuesta = "No pude entender el monto. 😊\n\nEscríbelo así: 5 millones, 500 mil..."
+            respuesta = "No pude entender el monto. 😊\n\nEjemplo: 5 millones, 500 mil..."
 
     elif etapa == "sim_pidiendo_meses":
         meses = parsear_meses(texto)
-        if meses and 10 <= meses <= 240:
-            key  = datos["sim_producto_key"]
-            info = TASAS_MV[key]
+        key   = datos.get("sim_producto_key","1")
+        info  = TASAS_MV[key]
+        min_m = info["min_meses"]
+        max_m = info["max_meses"]
+        if meses and min_m <= meses <= max_m:
             respuesta = MSG_RESULTADO_SIMULACION(
                 info["nombre"], datos["sim_monto_num"], meses,
                 info["tasa_mv"], info["desde_ea"], info["hasta_ea"]
             )
             set_estado(telefono, "inicio", {})
+        elif meses:
+            respuesta = f"Para este producto el plazo es *{min_m} a {max_m} meses*. 😊"
         else:
             respuesta = MSG_MESES_INVALIDOS
 
     # ══════════════════════════════════════════
-    # FORMULARIO CON VALIDACIÓN — CAMBIO 4: aplica para todos los servicios
+    # FORMULARIO
     # ══════════════════════════════════════════
 
     elif etapa == "preguntando_nombre":
@@ -449,26 +548,61 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             respuesta = MSG_RETRY_INGRESOS
 
     elif etapa == "preguntando_actividad":
-        if parece_actividad(texto):
+        # Opciones numéricas 1-5 o texto libre
+        if tl in ACTIVIDAD_OPCIONES:
+            datos["actividad"] = ACTIVIDAD_OPCIONES[tl]
+            set_estado(telefono, "preguntando_antiguedad", datos)
+            respuesta = MSG_PEDIR_ANTIGUEDAD
+        elif tl == "6":
+            # Quiere escribir su propia actividad
+            set_estado(telefono, "confirmando_actividad", datos)
+            respuesta = "¿Cuál es tu actividad? Escríbela por favor. 😊"
+        elif parece_actividad_libre(texto):
             datos["actividad"] = texto
             set_estado(telefono, "preguntando_antiguedad", datos)
             respuesta = MSG_PEDIR_ANTIGUEDAD
         else:
             respuesta = MSG_RETRY_ACTIVIDAD
 
+    elif etapa == "confirmando_actividad":
+        # Recibió actividad libre
+        if len(texto.strip()) >= 3:
+            datos["actividad"] = texto
+            set_estado(telefono, "preguntando_antiguedad", datos)
+            respuesta = MSG_PEDIR_ANTIGUEDAD
+        else:
+            respuesta = "Por favor describe tu actividad. 😊"
+
     elif etapa == "preguntando_antiguedad":
-        datos["antiguedad_pendiente"] = texto
-        set_estado(telefono, "confirmando_antiguedad", datos)
-        respuesta = MSG_CONFIRMAR_ANTIGUEDAD(texto)
+        # Solo acepta años — CAMBIO 3
+        anios = parsear_anios(texto)
+        if anios is not None and anios >= 0:
+            antiguedad_str = f"{anios} {'año' if anios == 1 else 'años'}"
+            datos["antiguedad_pendiente"] = antiguedad_str
+            set_estado(telefono, "confirmando_antiguedad", datos)
+            respuesta = MSG_CONFIRMAR_ANTIGUEDAD(antiguedad_str)
+        elif "mes" in tl:
+            respuesta = "Por favor indícalo en *años*. 😊\n\nPor ejemplo, si llevas 6 meses, escribe *1* (aproximado)."
+        else:
+            respuesta = MSG_RETRY_ANTIGUEDAD
 
     elif etapa == "confirmando_antiguedad":
-        datos["antiguedad"] = datos.get("antiguedad_pendiente", texto) if tl in CONFIRMACIONES else texto
+        if tl in CONFIRMACIONES:
+            datos["antiguedad"] = datos.get("antiguedad_pendiente", texto)
+        else:
+            # Intentar parsear corrección
+            anios = parsear_anios(texto)
+            if anios is not None:
+                datos["antiguedad"] = f"{anios} {'año' if anios == 1 else 'años'}"
+            else:
+                datos["antiguedad"] = texto
+
         if datos.get("monto"):
             set_estado(telefono, "preguntando_correo", datos)
             respuesta = MSG_PEDIR_CORREO
         else:
             set_estado(telefono, "preguntando_monto_form", datos)
-            respuesta = "¿Cuál es el *monto* o *plan* que te interesa? 💰\n\nEjemplo: 2 millones, 500 mil, o el plan del seguro..."
+            respuesta = "¿Cuál es el *monto* que necesitas? 💰\n\nEjemplo: 2 millones, 500 mil..."
 
     elif etapa == "preguntando_monto_form":
         if len(texto.strip()) >= 2:
@@ -477,7 +611,7 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             set_estado(telefono, "preguntando_correo", datos)
             respuesta = MSG_PEDIR_CORREO
         else:
-            respuesta = "Por favor escribe el monto o plan que te interesa. 😊"
+            respuesta = "Escribe el monto que necesitas. 😊"
 
     elif etapa == "preguntando_correo":
         if parece_correo(texto):
@@ -522,9 +656,9 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             respuesta = MSG_CORREGIR_DATOS
 
     elif etapa == "post_solicitud":
-        if tl in NEGACIONES or tl in {"omitir","no","nel","no gracias"}:
+        if tl in NEGACIONES or tl in {"0","omitir","no","nel"}:
             set_estado(telefono, "inicio", {})
-            respuesta = "¡Perfecto! Cuando necesites algo más, aquí estaré. 😊\n\nQue tengas un excelente día."
+            respuesta = "¡Perfecto! Que tengas un excelente día. 😊"
         elif tl in SEGUROS_DETALLE:
             respuesta = SEGUROS_DETALLE[tl]
             pdf_info  = PDF_SEGUROS.get(tl)
@@ -551,7 +685,7 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
         try:
             resp_ia = claude.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=450,
+                max_tokens=350,
                 system=SISTEMA_PROMPT,
                 messages=historial_limpio
             )
@@ -561,21 +695,42 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             notificar_error(telefono, str(e))
             respuesta = MSG_ERROR_TECNICO
 
-        # ── [INICIAR_CREDITO:tipo] ──
+        # Detectar nombre en la respuesta para mostrar menú inicial
+        # Si la IA acaba de recibir el nombre del cliente
         match_credito = re.search(r'\[INICIAR_CREDITO:(\w+)\]', respuesta)
-        # ── [INICIAR_SEGURO:numero] ──
-        match_seguro = re.search(r'\[INICIAR_SEGURO:(\w+)\]', respuesta)
-        # ── [INICIAR_AHORRO] ──
-        match_ahorro = "[INICIAR_AHORRO]" in respuesta
+        match_seguro  = re.search(r'\[INICIAR_SEGURO:(\w+)\]',  respuesta)
+        match_ahorro  = "[INICIAR_AHORRO]"    in respuesta
+        match_sim     = "[INICIAR_SIMULADOR]" in respuesta
+        match_pdfs    = "[MOSTRAR_PDFS]"      in respuesta
 
-        if match_credito:
+        # ── Detectar si el cliente dijo su nombre (IA preguntó y el cliente respondió) ──
+        ultimo_bot = ""
+        for msg in reversed(historial_limpio):
+            if msg.get("role") == "assistant":
+                ultimo_bot = msg.get("content","").lower()
+                break
+
+        cliente_dio_nombre = (
+            parece_nombre(texto) and
+            ("gusto" in ultimo_bot or "nombre" in ultimo_bot or "quien" in ultimo_bot or "quién" in ultimo_bot)
+        )
+
+        if cliente_dio_nombre and etapa == "inicio":
+            nombre = texto.strip()
+            datos["nombre"] = nombre
+            set_estado(telefono, "menu_inicial", datos)
+            respuesta = MSG_BIENVENIDA_NOMBRE(nombre.split()[0])
+
+        elif match_credito:
             tipo = match_credito.group(1)
             respuesta_limpia = re.sub(r'\[INICIAR_CREDITO:\w+\]', '', respuesta).strip()
             nombre_en_conv   = _extraer_nombre_historial(historial)
-            datos_nuevos     = {"servicio": tipo, "nombre": nombre_en_conv}
-            # Nombre del servicio para el resumen
             tasa_info = obtener_tasa(tipo)
-            datos_nuevos["servicio_nombre"] = tasa_info["nombre"]
+            datos_nuevos = {
+                "servicio": tipo,
+                "servicio_nombre": tasa_info["nombre"],
+                "nombre": nombre_en_conv,
+            }
             set_estado(telefono, "pre_sim_monto", datos_nuevos)
             nombre_msg = nombre_en_conv.split()[0] if nombre_en_conv else ""
             respuesta  = (respuesta_limpia + "\n\n" + MSG_PRE_SIM_MONTO(nombre_msg)).strip()
@@ -591,11 +746,7 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
                 "nombre": nombre_en_conv,
             }
             set_estado(telefono, "pre_sim_seguro_confirmar", datos_nuevos)
-            sim_msg = MSG_SIM_SEGURO(
-                plan_info.get("nombre", f"Seguro {num_seguro}"),
-                plan_info.get("desde", "según plan"),
-                plan_info.get("hasta", "según plan")
-            )
+            sim_msg  = MSG_SIM_SEGURO(plan_info.get("nombre","Seguro"), plan_info.get("desde",""), plan_info.get("hasta",""))
             respuesta = (respuesta_limpia + "\n\n" + sim_msg).strip()
 
         elif match_ahorro:
@@ -609,19 +760,14 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             set_estado(telefono, "pre_sim_ahorro_monto", datos_nuevos)
             nombre_msg = nombre_en_conv.split()[0] if nombre_en_conv else ""
             intro = f"Con mucho gusto, *{nombre_msg}*. 😊\n\n" if nombre_msg else "Con mucho gusto. 😊\n\n"
-            respuesta = (
-                respuesta_limpia + "\n\n" + intro +
-                "Para mostrarte un ejemplo real de rendimiento, "
-                "¿cuánto dinero te gustaría invertir?\n\n"
-                "Puedes escribirlo como quieras: 5 millones, 500 mil, 2.000.000..."
-            ).strip()
+            respuesta = (respuesta_limpia + "\n\n" + intro + "¿Cuánto dinero tienes para invertir?\n\nEjemplo: 5 millones...").strip()
 
-        elif "[INICIAR_SIMULADOR]" in respuesta:
+        elif match_sim:
             respuesta_limpia = re.sub(r'\[INICIAR_SIMULADOR\]', '', respuesta).strip()
             set_estado(telefono, "sim_eligiendo_producto", {})
             respuesta = (respuesta_limpia + "\n\n" + SIMULADOR_MENU).strip()
 
-        elif "[MOSTRAR_PDFS]" in respuesta:
+        elif match_pdfs:
             respuesta = MSG_LISTA_PDFS
             set_estado(telefono, "inicio", datos)
 
@@ -651,7 +797,7 @@ def recibir_mensaje():
     telefono  = data.get("from")
     texto     = data.get("body","")
     imagen    = data.get("imagen")
-    es_audio  = data.get("es_audio", False)  # CAMBIO 7
+    es_audio  = data.get("es_audio", False)
 
     if not telefono:
         return jsonify({"error": "Datos incompletos"}), 400
