@@ -2,11 +2,16 @@
 bot.py — Banco Caja Social / Alex Martínez
 
 Cambios:
-1. Menú inicial después del saludo (info vs contacto directo)
-2. Menús numerados para productos y actividad
-3. Plazos correctos por tipo de crédito
-4. Antigüedad solo en años
-5. Microcrédito para independientes
+- Cargo cambiado a "Ejecutivo Comercial"
+- Opción 2 del menú: plantilla completa de datos (sin paso a paso)
+- Microcrédito: sin simulación, va directo a pedir datos
+- Libranza: plazo corregido a 144 meses
+- Microcrédito: 36 meses máximo
+- Ingresos: sin "cualquier monto es válido"
+- Nota de seguros obligatorios en ejemplos de crédito
+- Retención 4% en ejemplos de ahorro/CDT
+- Fallback siempre al menú principal (no a seguros)
+- Palabra "menú" regresa al menú principal en cualquier momento
 """
 
 import os
@@ -24,7 +29,8 @@ from mensajes import (
     SEGUROS_DETALLE, PDF_SEGUROS, SEGUROS_PLANES,
     MSG_LISTA_PDFS, MSG_OFERTA_PDFS_POST_SOLICITUD, MSG_OFERTA_PDFS_PROACTIVA,
     MSG_BIENVENIDA_NOMBRE, MSG_MENU_INICIAL, MSG_MENU_PRODUCTOS,
-    MSG_CONTACTO_DIRECTO, MENU_OPCIONES,
+    MSG_PEDIR_PLANTILLA, MSG_PLANTILLA_INCOMPLETA, MSG_PLANTILLA_RECIBIDA,
+    MENU_OPCIONES,
     MSG_PRE_SIM_MONTO, MSG_PRE_SIM_MESES, MSG_PRE_SIM_MESES_DEFAULT,
     MSG_PRE_SIM_RESULTADO, MSG_SIM_SEGURO, MSG_SIM_AHORRO,
     MSG_SIM_NO_APLICA, MSG_CONFIRMAR_APLICAR,
@@ -40,6 +46,7 @@ from mensajes import (
     MSG_PEDIR_CELULAR, MSG_RETRY_CELULAR,
     MSG_RESUMEN, MSG_CORREGIR_DATOS,
     MSG_CIERRE_CALIDO, MSG_RECIBO_FINAL, MSG_RESUMEN_ASESOR,
+    MSG_RESUMEN_ASESOR_PLANTILLA,
     MSG_ERROR_TECNICO, MSG_AUDIO_NO_SOPORTADO,
     MSG_RESPUESTA_GROSER, PALABRAS_GROSERAS,
     PRESENTACION_LIBRE_INVERSION, PRESENTACION_LIBRANZA,
@@ -133,7 +140,7 @@ PALABRAS_NO_NOMBRE = {
     "credito","crédito","prestamo","préstamo","vivienda","libranza","cartera",
     "simulacion","simulación","seguro","ahorro","inversion","inversión",
     "pdf","lista","documento","información","informacion","ayuda","folleto",
-    "microcredito","microcrédito",
+    "microcredito","microcrédito","menu","menú",
     "el","la","los","las","un","una","de","del","al","por","para","con","sin",
     "que","y","o","es","son","hay","puede","a","e","ni","pero","mas","más",
     "banco","caja","social","asesor","agente","libre","compra","mejoramiento",
@@ -143,6 +150,7 @@ CONFIRMACIONES = {"si","sí","yes","s","correcto","ok","claro","todo bien",
                   "esta bien","está bien","adelante","dale","listo","exacto"}
 NEGACIONES     = {"no","nel","nope","no gracias","no quiero","en otro momento",
                   "despues","después","luego","ahora no"}
+PALABRAS_MENU  = {"menu","menú","inicio","regresar","volver","atrás","atras","principal"}
 
 def contiene_groseria(texto):
     t = texto.lower().strip()
@@ -184,7 +192,6 @@ def parece_celular(texto):
     return len(t) >= 7 and sum(c.isdigit() for c in t) >= len(t) * 0.8
 
 def parece_actividad_libre(texto):
-    """True si el texto parece una actividad escrita libremente (no número)."""
     t = texto.strip().lower()
     if len(t) < 3:
         return False
@@ -195,17 +202,61 @@ def parece_actividad_libre(texto):
     return True
 
 def parsear_anios(texto):
-    """Extrae años de un texto. Solo acepta años (no meses)."""
     t = texto.lower().strip()
-    # Buscar número
     match = re.search(r'(\d+(?:\.\d+)?)', t)
     if not match:
         return None
     num = float(match.group(1))
-    # Si dice "meses" o "mes", rechazar y pedir años
     if "mes" in t:
         return None
     return int(num)
+
+# ─────────────────────────────────────────────
+# VALIDACIÓN DE PLANTILLA
+# ─────────────────────────────────────────────
+
+def parsear_plantilla(texto):
+    """
+    Extrae los campos de la plantilla enviada por el cliente.
+    Detecta campos aunque el cliente no use los emojis exactos.
+    Devuelve dict con los campos encontrados y una lista de faltantes.
+    """
+    t = texto.lower()
+    campos_requeridos = {
+        "nombre":    ["nombre"],
+        "cedula":    ["cedula","cédula","c.c","cc"],
+        "celular":   ["celular","telefono","teléfono","tel"],
+        "correo":    ["correo","email","mail"],
+        "ingresos":  ["ingreso","salario","sueldo"],
+        "actividad": ["actividad","ocupacion","ocupación","trabajo","empleo","profesion","profesión"],
+        "monto":     ["monto","necesit","cantidad","capital","solicit"],
+        "tipo":      ["tipo","credito","crédito","producto","linea","línea"],
+    }
+    resultado = {}
+    faltantes = []
+
+    # Parseo línea por línea
+    lineas = texto.split("\n")
+    for linea in lineas:
+        linea_lower = linea.lower()
+        for campo, keywords in campos_requeridos.items():
+            if campo in resultado:
+                continue
+            for kw in keywords:
+                if kw in linea_lower:
+                    # Extraer todo después de los dos puntos o espacio
+                    match = re.search(r':(.+)', linea)
+                    if match:
+                        valor = match.group(1).strip().strip("*").strip()
+                        if valor and len(valor) >= 2:
+                            resultado[campo] = valor
+                            break
+
+    for campo in campos_requeridos:
+        if campo not in resultado:
+            faltantes.append(campo)
+
+    return resultado, faltantes
 
 # ─────────────────────────────────────────────
 # UTILIDADES
@@ -248,8 +299,8 @@ def _extraer_nombre_historial(historial):
                 return c
     return ""
 
-def iniciar_credito(telefono, tipo, nombre_en_conv, presentacion, servicio_nombre):
-    """Muestra presentación del crédito y arranca la simulación."""
+def iniciar_credito_con_sim(telefono, tipo, nombre_en_conv, presentacion, servicio_nombre):
+    """Para créditos CON simulación (libre, libranza, vivienda, cartera)."""
     datos_nuevos = {
         "servicio": tipo,
         "servicio_nombre": servicio_nombre,
@@ -258,6 +309,21 @@ def iniciar_credito(telefono, tipo, nombre_en_conv, presentacion, servicio_nombr
     set_estado(telefono, "pre_sim_monto", datos_nuevos)
     nombre_msg = nombre_en_conv.split()[0] if nombre_en_conv else ""
     return presentacion + "\n\n" + MSG_PRE_SIM_MONTO(nombre_msg)
+
+def iniciar_microcredito_sin_sim(telefono, nombre_en_conv):
+    """Microcrédito va DIRECTO al formulario — sin simulación."""
+    datos_nuevos = {
+        "servicio": "microcredito",
+        "servicio_nombre": "Microcrédito",
+        "nombre": nombre_en_conv,
+        "monto": "Por evaluar",  # marcador para saltar pregunta de monto
+    }
+    if nombre_en_conv and parece_nombre(nombre_en_conv):
+        set_estado(telefono, "preguntando_cedula", datos_nuevos)
+        return PRESENTACION_MICROCREDITO + "\n\n" + MSG_PEDIR_CEDULA(nombre_en_conv.split()[0])
+    else:
+        set_estado(telefono, "preguntando_nombre", datos_nuevos)
+        return PRESENTACION_MICROCREDITO + "\n\n" + MSG_PEDIR_NOMBRE
 
 # ─────────────────────────────────────────────
 # LÓGICA PRINCIPAL
@@ -283,9 +349,18 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
         guardar_mensaje(telefono, "assistant", MSG_RESPUESTA_GROSER)
         return {"reply": MSG_RESPUESTA_GROSER}
 
+    # ── Palabra "menú" regresa al menú principal en cualquier momento ──
+    if tl in PALABRAS_MENU:
+        nombre_guardado = datos.get("nombre","")
+        nuevos_datos = {"nombre": nombre_guardado} if nombre_guardado else {}
+        set_estado(telefono, "menu_inicial", nuevos_datos)
+        respuesta = "¡Con gusto! 😊\n\n" + MSG_MENU_INICIAL
+        guardar_mensaje(telefono, "assistant", respuesta)
+        return {"reply": respuesta}
+
     # Detectar PDFs fuera del formulario
     etapas_formulario = {
-        "menu_inicial","esperando_menu_productos",
+        "menu_inicial","esperando_menu_productos","esperando_plantilla",
         "pre_sim_monto","pre_sim_meses","pre_sim_confirmar",
         "pre_sim_seguro_confirmar","pre_sim_ahorro_monto",
         "pre_sim_ahorro_dias","pre_sim_ahorro_confirmar",
@@ -297,27 +372,56 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
         "confirmando_resumen",
     }
     palabras_pdf = ["pdf","documento","folleto","brochure","catalogo","catálogo",
-                    "lista","archivos","materiales"]
+                    "archivos","materiales"]
     if any(p in tl for p in palabras_pdf) and etapa not in etapas_formulario:
         guardar_mensaje(telefono, "assistant", MSG_LISTA_PDFS)
         return {"reply": MSG_LISTA_PDFS}
 
     # ══════════════════════════════════════════
-    # MENÚ INICIAL — CAMBIO 1
+    # MENÚ INICIAL
     # ══════════════════════════════════════════
 
     if etapa == "menu_inicial":
         if tl == "1" or "información" in tl or "info" in tl or "productos" in tl:
             set_estado(telefono, "esperando_menu_productos", datos)
             respuesta = MSG_MENU_PRODUCTOS
-        elif tl == "2" or "asesor" in tl or "contactar" in tl or "hablar" in tl:
-            set_estado(telefono, "inicio", datos)
-            respuesta = MSG_CONTACTO_DIRECTO
+        elif tl == "2" or "asesor" in tl or "contactar" in tl or "directo" in tl or "datos" in tl:
+            set_estado(telefono, "esperando_plantilla", datos)
+            respuesta = MSG_PEDIR_PLANTILLA
         else:
             respuesta = MSG_MENU_INICIAL
 
     # ══════════════════════════════════════════
-    # MENÚ DE PRODUCTOS — CAMBIO 2
+    # OPCIÓN 2 — PLANTILLA DE DATOS
+    # ══════════════════════════════════════════
+
+    elif etapa == "esperando_plantilla":
+        # Parsear la plantilla enviada
+        plantilla_datos, faltantes = parsear_plantilla(texto)
+
+        # Si tiene pocos campos, no parece una plantilla real
+        if len(plantilla_datos) < 4:
+            respuesta = MSG_PLANTILLA_INCOMPLETA
+        else:
+            # Notificar al asesor con los datos recibidos
+            numero_limpio = telefono.replace("@lid","").replace("@c.us","").replace("@s.whatsapp.net","")
+            nombre_corto  = plantilla_datos.get("nombre","").split()[0] if plantilla_datos.get("nombre") else ""
+
+            resumen_asesor = MSG_RESUMEN_ASESOR_PLANTILLA(texto, numero_limpio, nombre_corto)
+            notificar_asesor(resumen_asesor)
+
+            set_estado(telefono, "inicio", {})
+            respuesta = MSG_PLANTILLA_RECIBIDA(nombre_corto)
+            guardar_mensaje(telefono, "assistant", respuesta)
+            return {
+                "reply": respuesta,
+                "notificar_asesor": True,
+                "numero_asesor": NUMERO_ASESOR,
+                "mensaje_asesor": resumen_asesor,
+            }
+
+    # ══════════════════════════════════════════
+    # MENÚ DE PRODUCTOS
     # ══════════════════════════════════════════
 
     elif etapa == "esperando_menu_productos":
@@ -325,30 +429,28 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
         opcion = MENU_OPCIONES.get(tl)
 
         if opcion == "credito_libre":
-            respuesta = iniciar_credito(
+            respuesta = iniciar_credito_con_sim(
                 telefono, "libre_inversion", nombre_en_conv,
                 PRESENTACION_LIBRE_INVERSION, "Crédito de Libre Inversión"
             )
         elif opcion == "credito_libranza":
-            respuesta = iniciar_credito(
+            respuesta = iniciar_credito_con_sim(
                 telefono, "libranza", nombre_en_conv,
                 PRESENTACION_LIBRANZA, "Crédito de Libranza"
             )
         elif opcion == "credito_vivienda":
-            respuesta = iniciar_credito(
+            respuesta = iniciar_credito_con_sim(
                 telefono, "vivienda", nombre_en_conv,
                 PRESENTACION_VIVIENDA, "Crédito de Vivienda"
             )
         elif opcion == "compra_cartera":
-            respuesta = iniciar_credito(
+            respuesta = iniciar_credito_con_sim(
                 telefono, "compra_cartera", nombre_en_conv,
                 PRESENTACION_COMPRA_CARTERA, "Compra de Cartera"
             )
         elif opcion == "microcredito":
-            respuesta = iniciar_credito(
-                telefono, "microcredito", nombre_en_conv,
-                PRESENTACION_MICROCREDITO, "Microcrédito"
-            )
+            # MICROCRÉDITO: sin simulación, va directo al formulario
+            respuesta = iniciar_microcredito_sin_sim(telefono, nombre_en_conv)
         elif opcion == "ahorro":
             set_estado(telefono, "pre_sim_ahorro_monto", {
                 "servicio": "ahorro_inversion",
@@ -368,7 +470,7 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             respuesta = "Escribe el número de la opción (1 al 8). 😊\n\n" + MSG_MENU_PRODUCTOS
 
     # ══════════════════════════════════════════
-    # SIMULACIÓN — CRÉDITOS
+    # SIMULACIÓN — CRÉDITOS (NO para microcrédito)
     # ══════════════════════════════════════════
 
     elif etapa == "pre_sim_monto":
@@ -377,7 +479,6 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             datos["monto"]     = texto_fmt
             datos["monto_num"] = num
             set_estado(telefono, "pre_sim_meses", datos)
-            # Mostrar plazo correcto según el tipo de servicio
             tasa_info = obtener_tasa(datos.get("servicio","libre_inversion"))
             min_m = tasa_info.get("min_meses", 12)
             max_m = tasa_info.get("max_meses", 60)
@@ -548,13 +649,11 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             respuesta = MSG_RETRY_INGRESOS
 
     elif etapa == "preguntando_actividad":
-        # Opciones numéricas 1-5 o texto libre
         if tl in ACTIVIDAD_OPCIONES:
             datos["actividad"] = ACTIVIDAD_OPCIONES[tl]
             set_estado(telefono, "preguntando_antiguedad", datos)
             respuesta = MSG_PEDIR_ANTIGUEDAD
         elif tl == "6":
-            # Quiere escribir su propia actividad
             set_estado(telefono, "confirmando_actividad", datos)
             respuesta = "¿Cuál es tu actividad? Escríbela por favor. 😊"
         elif parece_actividad_libre(texto):
@@ -565,7 +664,6 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             respuesta = MSG_RETRY_ACTIVIDAD
 
     elif etapa == "confirmando_actividad":
-        # Recibió actividad libre
         if len(texto.strip()) >= 3:
             datos["actividad"] = texto
             set_estado(telefono, "preguntando_antiguedad", datos)
@@ -574,7 +672,6 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             respuesta = "Por favor describe tu actividad. 😊"
 
     elif etapa == "preguntando_antiguedad":
-        # Solo acepta años — CAMBIO 3
         anios = parsear_anios(texto)
         if anios is not None and anios >= 0:
             antiguedad_str = f"{anios} {'año' if anios == 1 else 'años'}"
@@ -590,13 +687,13 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
         if tl in CONFIRMACIONES:
             datos["antiguedad"] = datos.get("antiguedad_pendiente", texto)
         else:
-            # Intentar parsear corrección
             anios = parsear_anios(texto)
             if anios is not None:
                 datos["antiguedad"] = f"{anios} {'año' if anios == 1 else 'años'}"
             else:
                 datos["antiguedad"] = texto
 
+        # Para microcrédito saltar directo al correo (sin pedir monto, ya está "Por evaluar")
         if datos.get("monto"):
             set_estado(telefono, "preguntando_correo", datos)
             respuesta = MSG_PEDIR_CORREO
@@ -695,15 +792,15 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             notificar_error(telefono, str(e))
             respuesta = MSG_ERROR_TECNICO
 
-        # Detectar nombre en la respuesta para mostrar menú inicial
-        # Si la IA acaba de recibir el nombre del cliente
+        # Tags de la IA
         match_credito = re.search(r'\[INICIAR_CREDITO:(\w+)\]', respuesta)
         match_seguro  = re.search(r'\[INICIAR_SEGURO:(\w+)\]',  respuesta)
         match_ahorro  = "[INICIAR_AHORRO]"    in respuesta
         match_sim     = "[INICIAR_SIMULADOR]" in respuesta
         match_pdfs    = "[MOSTRAR_PDFS]"      in respuesta
+        match_menu    = "[MENU_PRINCIPAL]"    in respuesta
 
-        # ── Detectar si el cliente dijo su nombre (IA preguntó y el cliente respondió) ──
+        # Detectar si el cliente dijo su nombre
         ultimo_bot = ""
         for msg in reversed(historial_limpio):
             if msg.get("role") == "assistant":
@@ -725,15 +822,19 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             tipo = match_credito.group(1)
             respuesta_limpia = re.sub(r'\[INICIAR_CREDITO:\w+\]', '', respuesta).strip()
             nombre_en_conv   = _extraer_nombre_historial(historial)
-            tasa_info = obtener_tasa(tipo)
-            datos_nuevos = {
-                "servicio": tipo,
-                "servicio_nombre": tasa_info["nombre"],
-                "nombre": nombre_en_conv,
-            }
-            set_estado(telefono, "pre_sim_monto", datos_nuevos)
-            nombre_msg = nombre_en_conv.split()[0] if nombre_en_conv else ""
-            respuesta  = (respuesta_limpia + "\n\n" + MSG_PRE_SIM_MONTO(nombre_msg)).strip()
+            if tipo == "microcredito":
+                # Microcrédito sin simulación
+                respuesta = (respuesta_limpia + "\n\n" + iniciar_microcredito_sin_sim(telefono, nombre_en_conv)).strip()
+            else:
+                tasa_info = obtener_tasa(tipo)
+                datos_nuevos = {
+                    "servicio": tipo,
+                    "servicio_nombre": tasa_info["nombre"],
+                    "nombre": nombre_en_conv,
+                }
+                set_estado(telefono, "pre_sim_monto", datos_nuevos)
+                nombre_msg = nombre_en_conv.split()[0] if nombre_en_conv else ""
+                respuesta  = (respuesta_limpia + "\n\n" + MSG_PRE_SIM_MONTO(nombre_msg)).strip()
 
         elif match_seguro:
             num_seguro = match_seguro.group(1)
@@ -771,7 +872,14 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             respuesta = MSG_LISTA_PDFS
             set_estado(telefono, "inicio", datos)
 
-        elif tl in SEGUROS_DETALLE:
+        elif match_menu:
+            respuesta_limpia = re.sub(r'\[MENU_PRINCIPAL\]', '', respuesta).strip()
+            set_estado(telefono, "menu_inicial", datos)
+            respuesta = (respuesta_limpia + "\n\n" + MSG_MENU_INICIAL).strip() if respuesta_limpia else MSG_MENU_INICIAL
+
+        elif tl in SEGUROS_DETALLE and len(tl) == 1:
+            # Solo si es EXACTAMENTE un número del 1 al 9 (para evitar que
+            # cualquier número del menú anterior caiga acá erróneamente)
             respuesta = SEGUROS_DETALLE[tl]
             pdf_info  = PDF_SEGUROS.get(tl)
             if pdf_info:
@@ -781,7 +889,10 @@ def procesar_mensaje(telefono, texto, imagen_info=None, es_audio=False):
             set_estado(telefono, "inicio", datos)
 
         else:
-            set_estado(telefono, "inicio", datos)
+            # FALLBACK: en vez de quedarse perdido, volver al menú principal
+            nombre_guardado = datos.get("nombre","")
+            nuevos_datos = {"nombre": nombre_guardado} if nombre_guardado else {}
+            set_estado(telefono, "inicio", nuevos_datos)
 
     guardar_mensaje(telefono, "assistant", respuesta)
     return {"reply": respuesta, **extra}

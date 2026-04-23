@@ -3,7 +3,7 @@
 # ============================================================
 
 NOMBRE_ASESOR = "Alex Martínez"
-CARGO_ASESOR  = "Asesor Integral"
+CARGO_ASESOR  = "Ejecutivo Comercial"
 BANCO         = "Banco Caja Social"
 OFICINA       = "Parque Principal Bello, Antioquia"
 DIRECCION     = "Cr 49 49-03 Parque Principal Bello, Antioquia"
@@ -34,12 +34,13 @@ MSG_RESPUESTA_GROSER = (
 # ─────────────────────────────────────────────
 # TASAS Y PLAZOS VIGENTES
 # ─────────────────────────────────────────────
+# Libranza ahora a 144 meses, Microcrédito a 36 meses
 
 TASAS_MV = {
     "1": {"nombre": "Crédito de Libre Inversión",     "tasa_mv": 1.5600, "desde_ea": 16.60, "hasta_ea": 24.25, "min_meses": 12, "max_meses": 60},
     "2": {"nombre": "Compra de Cartera",               "tasa_mv": 1.4650, "desde_ea": 14.35, "hasta_ea": 23.95, "min_meses": 12, "max_meses": 60},
-    "3": {"nombre": "Crédito de Libranza",             "tasa_mv": 1.5300, "desde_ea": 15.00, "hasta_ea": 25.20, "min_meses": 12, "max_meses": 140},
-    "4": {"nombre": "Libranza Compra de Cartera",      "tasa_mv": 1.5100, "desde_ea": 14.50, "hasta_ea": 25.20, "min_meses": 12, "max_meses": 140},
+    "3": {"nombre": "Crédito de Libranza",             "tasa_mv": 1.5300, "desde_ea": 15.00, "hasta_ea": 25.20, "min_meses": 12, "max_meses": 144},
+    "4": {"nombre": "Libranza Compra de Cartera",      "tasa_mv": 1.5100, "desde_ea": 14.50, "hasta_ea": 25.20, "min_meses": 12, "max_meses": 144},
     "5": {"nombre": "Crédito Hipotecario VIS",         "tasa_mv": 1.0650, "desde_ea": 11.90, "hasta_ea": 15.25, "min_meses": 12, "max_meses": 240},
     "6": {"nombre": "Crédito Hipotecario NO VIS",      "tasa_mv": 1.1050, "desde_ea": 12.10, "hasta_ea": 16.10, "min_meses": 12, "max_meses": 240},
     "7": {"nombre": "Mejoramiento de Vivienda VIS",    "tasa_mv": 1.1800, "desde_ea": 14.40, "hasta_ea": 15.75, "min_meses": 12, "max_meses": 120},
@@ -52,8 +53,11 @@ MAPA_SERVICIO_TASA = {
     "libranza":        "3",
     "vivienda":        "5",
     "mejoramiento":    "7",
-    "microcredito":    "1",  # usa tasa libre inversión como referencia
+    "microcredito":    "1",
 }
+
+# Retención en la fuente para rendimientos financieros (CDT, fondos, etc.)
+RETENCION_FUENTE = 0.04  # 4%
 
 # ─────────────────────────────────────────────
 # PDFs DISPONIBLES
@@ -104,27 +108,54 @@ MSG_OFERTA_PDFS_POST_SOLICITUD = (
 )
 
 # ─────────────────────────────────────────────
-# MENÚ INICIAL — CAMBIO 1
+# MENÚ INICIAL
 # ─────────────────────────────────────────────
 
 MSG_MENU_INICIAL = (
     "¿Cómo puedo ayudarte hoy?\n\n"
     "1️⃣ Quiero información sobre productos y servicios\n"
-    "2️⃣ Prefiero hablar directamente con un asesor\n\n"
+    "2️⃣ Déjanos tus datos y un asesor te contactará directamente\n\n"
     "Escribe *1* o *2*. 😊"
 )
 
-MSG_CONTACTO_DIRECTO = (
-    "¡Con mucho gusto! 😊\n\n"
-    "Puedes comunicarte directamente con nuestro asesor *Alex Martínez*:\n\n"
-    "📱 *+57 350 549 4401*\n"
-    "📍 Cr 49 49-03 Parque Principal Bello\n"
-    "🕒 Lun-Vie 8:00 AM - 4:00 PM\n\n"
-    "¡Te atenderemos con mucho gusto!"
+# ─────────────────────────────────────────────
+# OPCIÓN 2 — PLANTILLA DE DATOS (CAMBIO 2)
+# ─────────────────────────────────────────────
+
+MSG_PEDIR_PLANTILLA = (
+    "¡Perfecto! 😊 Déjanos tus datos completos y un asesor te contactará directamente.\n\n"
+    "Por favor copia la siguiente plantilla, llénala y envíala:\n\n"
+    "━━━━━━━━━━━━━━━━━━━━\n"
+    "👤 *Nombre completo:*\n"
+    "🪪 *Cédula:*\n"
+    "📱 *Celular:*\n"
+    "📧 *Correo:*\n"
+    "💰 *Ingresos mensuales:*\n"
+    "🏢 *Actividad y tiempo:*\n"
+    "💵 *Monto que necesitas:*\n"
+    "💼 *Tipo de crédito:*\n"
+    "━━━━━━━━━━━━━━━━━━━━"
 )
 
+MSG_PLANTILLA_INCOMPLETA = (
+    "Recibí tus datos, pero me faltan algunos campos. 😊\n\n"
+    "Por favor completa la plantilla con todos los datos:\n\n"
+    "👤 Nombre completo  |  🪪 Cédula  |  📱 Celular\n"
+    "📧 Correo  |  💰 Ingresos  |  🏢 Actividad y tiempo\n"
+    "💵 Monto  |  💼 Tipo de crédito"
+)
+
+def MSG_PLANTILLA_RECIBIDA(nombre_corto):
+    saludo = f"¡*{nombre_corto}*," if nombre_corto else "¡Listo,"
+    return (
+        f"{saludo} recibimos tus datos con éxito! 🎉\n\n"
+        f"*Alex Martínez* te contactará personalmente en breve para continuar con tu solicitud.\n\n"
+        f"📍 Cr 49 49-03 Parque Principal Bello\n"
+        f"🕒 Lun-Vie 8:00 AM - 4:00 PM 😊"
+    )
+
 # ─────────────────────────────────────────────
-# MENÚ DE PRODUCTOS — CAMBIO 2
+# MENÚ DE PRODUCTOS
 # ─────────────────────────────────────────────
 
 MSG_MENU_PRODUCTOS = (
@@ -136,10 +167,10 @@ MSG_MENU_PRODUCTOS = (
     "5️⃣ Microcrédito para independientes\n"
     "6️⃣ Ahorro e Inversión\n"
     "7️⃣ Seguros\n"
-    "8️⃣ Simular cuota de crédito 📊"
+    "8️⃣ Simular cuota de crédito 📊\n\n"
+    "_Escribe *menú* en cualquier momento para volver aquí._"
 )
 
-# Mapeo de opción del menú a acción interna
 MENU_OPCIONES = {
     "1": "credito_libre",
     "2": "credito_libranza",
@@ -152,7 +183,7 @@ MENU_OPCIONES = {
 }
 
 # ─────────────────────────────────────────────
-# MENÚ DE ACTIVIDAD — CAMBIO 2
+# MENÚ DE ACTIVIDAD
 # ─────────────────────────────────────────────
 
 MSG_PEDIR_ACTIVIDAD = (
@@ -186,7 +217,7 @@ MSG_RETRY_ACTIVIDAD = (
 # ─────────────────────────────────────────────
 
 SALUDO_INICIAL = (
-    "¡Hola! Buen día 😊 Soy *Alex Martínez*, Asesor Integral del *Banco Caja Social*.\n\n"
+    f"¡Hola! Buen día 😊 Soy *{NOMBRE_ASESOR}*, {CARGO_ASESOR} del *{BANCO}*.\n\n"
     "¿Con quién tengo el gusto?"
 )
 
@@ -216,6 +247,7 @@ PRESENTACION_MICROCREDITO = (
     "diseñada para impulsar tu negocio o actividad.\n\n"
     "✅ Sin necesidad de historial crediticio extenso\n"
     "✅ Montos desde 1 SMMLV\n"
+    "✅ Plazo: hasta 36 meses\n"
     "✅ Proceso ágil y personalizado\n\n"
     "*Recuerda:* Si eres independiente, transportador o tienes tu propio negocio, "
     "esta es tu mejor opción. Un asesor evaluará tu caso con mucho gusto. 😊"
@@ -226,7 +258,7 @@ PRESENTACION_LIBRANZA = (
     "• *Pensionados:* COLPENSIONES, FOPEP, FOMAG, FIDUPREVISORA y más.\n"
     "• *Militares activos y retirados:* EJÉRCITO, POLICÍA, ARMADA, CASUR, CREMIL y más.\n\n"
     "✅ Descuento directo de nómina o mesada | Sin codeudores\n"
-    "✅ Plazo: 12 a 140 meses | Proceso sin filas\n\n"
+    "✅ Plazo: 12 a 144 meses | Proceso sin filas\n\n"
     "*Recuerda:* Pensionados de fondos públicos y privados tienen condiciones preferenciales. 😊"
 )
 
@@ -247,7 +279,8 @@ PRESENTACION_COMPRA_CARTERA = (
 )
 
 # ─────────────────────────────────────────────
-# SIMULACIÓN
+# SIMULACIÓN — CRÉDITOS
+# Incluye nota de seguros obligatorios
 # ─────────────────────────────────────────────
 
 def MSG_PRE_SIM_MONTO(nombre):
@@ -293,6 +326,8 @@ def MSG_PRE_SIM_RESULTADO(producto, monto_num, meses, tasa_mv, desde_ea, hasta_e
         f"──────────────────────\n"
         f"⚠️ _Tasa promedio {tasa_mv:.2f}% M.V. "
         f"La real puede estar entre {desde_ea:.2f}% y {hasta_ea:.2f}% E.A. según tu perfil._\n\n"
+        f"📌 *Nota importante:* esta cuota es un promedio referencial y *no incluye "
+        f"los seguros obligatorios* del crédito, que se calculan sobre el saldo.\n\n"
         f"¿Quieres aplicar?\n"
         f"*Sí* para continuar | *No* para esperar 😊"
     )
@@ -311,8 +346,11 @@ def MSG_SIM_SEGURO(nombre_seguro, plan_desde, plan_hasta):
     )
 
 def MSG_SIM_AHORRO(monto_num, dias):
+    """Simulación AHORRO/CDT — resta retención en la fuente del 4% sobre rendimientos."""
     tasa_ea = 0.0875
-    rendimiento = monto_num * ((1 + tasa_ea) ** (dias / 365) - 1)
+    rendimiento_bruto = monto_num * ((1 + tasa_ea) ** (dias / 365) - 1)
+    retencion = rendimiento_bruto * RETENCION_FUENTE
+    rendimiento_neto = rendimiento_bruto - retencion
 
     def fmt(v):
         return f"${v:,.0f}".replace(",", ".")
@@ -324,8 +362,12 @@ def MSG_SIM_AHORRO(monto_num, dias):
         f"📅 Plazo: {dias} días\n"
         f"📈 Tasa ref: 8.75% E.A. (Cuentamiga)\n"
         f"──────────────────────\n"
-        f"💵 *Rendimiento aprox: {fmt(rendimiento)}*\n\n"
-        f"⚠️ _Varía según producto y plazo._\n\n"
+        f"💵 Rendimiento bruto: {fmt(rendimiento_bruto)}\n"
+        f"📉 Retención en la fuente (4%): -{fmt(retencion)}\n"
+        f"✅ *Rendimiento neto aprox: {fmt(rendimiento_neto)}*\n"
+        f"──────────────────────\n"
+        f"📌 _El estado retiene el 4% sobre los rendimientos financieros. "
+        f"El valor exacto varía según producto y plazo._\n\n"
         f"¿Quieres que un asesor te muestre las opciones?\n"
         f"*Sí* para continuar | *No* para esperar 😊"
     )
@@ -344,7 +386,7 @@ SEGUROS_PLANES = {
 
 MSG_SIM_NO_APLICA = (
     "No hay problema. Cuando quieras, aquí estaré. 😊\n\n"
-    "📍 Cr 49 49-03 Parque Principal Bello | 🕒 Lun-Vie 8:00 AM - 4:00 PM"
+    "Escribe *menú* para volver al inicio."
 )
 
 MSG_CONFIRMAR_APLICAR = (
@@ -357,8 +399,8 @@ SIMULADOR_MENU = (
     "¿Para qué producto quieres simular? Escribe el número:\n\n"
     "1️⃣ Libre Inversión (12-60 meses)\n"
     "2️⃣ Compra de Cartera (12-60 meses)\n"
-    "3️⃣ Libranza (12-140 meses)\n"
-    "4️⃣ Libranza C.Cartera (12-140 meses)\n"
+    "3️⃣ Libranza (12-144 meses)\n"
+    "4️⃣ Libranza C.Cartera (12-144 meses)\n"
     "5️⃣ Hipotecario VIS (12-240 meses)\n"
     "6️⃣ Hipotecario NO VIS (12-240 meses)\n"
     "7️⃣ Mejoramiento VIS (12-120 meses)\n"
@@ -499,12 +541,11 @@ def MSG_PEDIR_CEDULA(nombre):
     return f"Mucho gusto, *{nombre}*. 😊\n\n¿Cuál es tu número de *cédula*?"
 
 MSG_RETRY_CEDULA   = "No pude identificar la cédula. 😊\n\nEjemplo: 1034567890"
-MSG_PEDIR_INGRESOS = "¿Cuáles son tus *ingresos mensuales* aproximados? 👍\n\nCualquier monto es válido."
+
+# CAMBIO 4: Quitar "cualquier monto es válido"
+MSG_PEDIR_INGRESOS = "¿Cuáles son tus *ingresos mensuales* aproximados? 👍"
 MSG_RETRY_INGRESOS = "No entendí el monto. 😊\n\nEjemplo: 1.500.000, 2 millones, 800 mil..."
 
-# MSG_PEDIR_ACTIVIDAD está arriba (menú numerado)
-
-# CAMBIO 3: Antigüedad solo en años
 MSG_PEDIR_ANTIGUEDAD = (
     "¿Cuántos *años* llevas en esa actividad o empresa? 🙌\n\n"
     "Escribe solo el número de años. Ejemplo: 2, 5, 10..."
@@ -595,6 +636,17 @@ def MSG_RESUMEN_ASESOR(d, numero_limpio):
         f"🗓️ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     )
 
+def MSG_RESUMEN_ASESOR_PLANTILLA(texto_plantilla, numero_limpio, nombre=""):
+    from datetime import datetime
+    return (
+        "🔔 *NUEVA SOLICITUD VIA PLANTILLA — BCS*\n"
+        "──────────────────────\n"
+        f"📞 WhatsApp: +{numero_limpio}\n\n"
+        f"{texto_plantilla}\n"
+        "──────────────────────\n"
+        f"🗓️ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    )
+
 MSG_ERROR_TECNICO      = "Disculpa, inconveniente técnico. Un asesor te contactará pronto. 🙏"
 MSG_AUDIO_NO_SOPORTADO = "Disculpa, no puedo escuchar audios por el momento. 😊\n\nCuéntame en texto en qué puedo ayudarte."
 
@@ -606,7 +658,7 @@ SISTEMA_PROMPT = f"""Eres {NOMBRE_ASESOR}, {CARGO_ASESOR} del {BANCO}, oficina d
 Tono: cálido, concreto y profesional. Respuestas cortas — máximo 4 líneas. 1 emoji al final.
 
 SALUDO INICIAL:
-"¡Hola! Buen día 😊 Soy *Alex Martínez*, Asesor Integral del *Banco Caja Social*.
+"¡Hola! Buen día 😊 Soy *Alex Martínez*, Ejecutivo Comercial del *Banco Caja Social*.
 ¿Con quién tengo el gusto?"
 
 CUANDO SEPAS EL NOMBRE: saluda con calidez y muestra el menú de opciones.
@@ -616,10 +668,10 @@ Si el cliente usa groserías: responde con calma, nunca las repitas.
 PRODUCTOS Y PLAZOS:
 - Libre Inversión: 12-60 meses
 - Compra de Cartera: 12-60 meses
-- Libranza: 12-140 meses
+- Libranza: 12-144 meses
 - Hipotecario: 12-240 meses (Pesos) / 300 meses (UVR)
 - Mejoramiento Vivienda: 12-120 meses
-- Microcrédito: para independientes y transportadores
+- Microcrédito: hasta 36 meses (solo para independientes/transportadores)
 
 MENÚ PRINCIPAL (mostrar cuando el cliente quiere información):
 {MSG_MENU_PRODUCTOS}
@@ -628,17 +680,19 @@ REGLAS:
 1. Respuestas cortas y directas. Máximo 4 líneas.
 2. Usa menús numerados siempre que sea posible.
 3. NUNCA inventes tasas exactas.
-4. Si ingresos bajos: dile que igual se evalúa su caso.
+4. Si ingresos bajos: dile que igual se evalúa su caso con mucho gusto.
 5. Para CRÉDITOS: responde [INICIAR_CREDITO:tipo]
    tipos: libre_inversion, libranza, vivienda, compra_cartera, microcredito
 6. Para SEGUROS: responde [INICIAR_SEGURO:numero]
 7. Para AHORRO: responde [INICIAR_AHORRO]
 8. Para SIMULACIÓN: [INICIAR_SIMULADOR]
 9. Para PDFs: [MOSTRAR_PDFS]
-10. Para contacto directo con asesor: muestra número y dirección.
+10. Para volver al menú: [MENU_PRINCIPAL]
+11. Si no entiendes o el cliente parece perdido: responde [MENU_PRINCIPAL] para llevarlo al menú principal, NO a seguros.
 
 DETECTA crédito: préstamo, crédito, libranza, cartera, plata, dinero, cuotas, financiación, microcrédito.
 DETECTA simulación: simular, calcular, cuánto pago, cuánto sería, cuánto me sale.
+DETECTA volver al menú: menú, menu, inicio, regresar, volver, atrás.
 
 TONO: Cálido, directo, genuinamente cercano.
 """
