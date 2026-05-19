@@ -12,6 +12,7 @@ Cambios:
 - Retención 4% en ejemplos de ahorro/CDT
 - Fallback siempre al menú principal (no a seguros)
 - Palabra "menú" regresa al menú principal en cualquier momento
+- ✅ CORS HABILITADO para panel web
 """
 
 import os
@@ -21,26 +22,10 @@ import requests
 from datetime import datetime
 from anthropic import Anthropic
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from dotenv import load_dotenv
 
 from mensajes import (
-
-# ─────────────────────────────────────────────
-# ENVÍO MASIVO Y PROGRAMADO
-# ─────────────────────────────────────────────
-
-try:
-    from envio_masivo import EnvioMasivo
-    from envios_programados import (
-        programar_envio, cancelar_programacion,
-        obtener_programaciones, obtener_historial,
-        iniciar_scheduler
-    )
-    ENVIO_MASIVO_DISPONIBLE = True
-except ImportError:
-    print("⚠️  Módulos de envío no disponibles. Instala: pip install apscheduler")
-    ENVIO_MASIVO_DISPONIBLE = False
-
     NOMBRE_ASESOR, BANCO, NUMERO_ASESOR, SISTEMA_PROMPT,
     TASAS_MV, MAPA_SERVICIO_TASA,
     SEGUROS_DETALLE, PDF_SEGUROS, SEGUROS_PLANES,
@@ -72,9 +57,29 @@ except ImportError:
     SEGUROS_PRESENTACION,
 )
 
+# ─────────────────────────────────────────────
+# ENVÍO MASIVO Y PROGRAMADO
+# ─────────────────────────────────────────────
+
+ENVIO_MASIVO_DISPONIBLE = False
+
+try:
+    from envio_masivo import EnvioMasivo
+    from envios_programados import (
+        programar_envio, cancelar_programacion,
+        obtener_programaciones, obtener_historial,
+        iniciar_scheduler
+    )
+    ENVIO_MASIVO_DISPONIBLE = True
+    print("✅ Módulos de envío masivo cargados correctamente")
+except ImportError as e:
+    print(f"⚠️  Módulos de envío no disponibles: {e}")
+    print("   Instala con: pip install apscheduler openpyxl")
+
 load_dotenv()
 
 app    = Flask(__name__)
+CORS(app)  # ✅ HABILITAR CORS PARA QUE EL NAVEGADOR PUEDA CONECTARSE
 claude = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 # ─────────────────────────────────────────────

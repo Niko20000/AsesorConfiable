@@ -43,6 +43,26 @@
             padding: 30px;
         }
 
+        .connection-status {
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .connection-status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .connection-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
         .tabs {
             display: flex;
             gap: 10px;
@@ -90,7 +110,7 @@
 
         input[type="text"],
         input[type="number"],
-        input[type="time"],
+        input[type="password"],
         textarea,
         select {
             width: 100%;
@@ -163,6 +183,7 @@
             display: flex;
             gap: 10px;
             margin-top: 20px;
+            flex-wrap: wrap;
         }
 
         .alert {
@@ -222,16 +243,6 @@
             font-weight: bold;
         }
 
-        .badge-active {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .badge-inactive {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
         .badge-time {
             background: #d1ecf1;
             color: #0c5460;
@@ -282,8 +293,8 @@
         </div>
 
         <div class="content">
-            <div class="alert alert-info" id="alertInfo">
-                ℹ️ Aquí puedes enviar mensajes ahora o programarlos para una hora específica
+            <div class="connection-status" id="connStatus">
+                🔄 Verificando conexión...
             </div>
 
             <div class="tabs">
@@ -413,6 +424,39 @@
     </div>
 
     <script>
+        // Detectar la URL base automáticamente
+        let API_URL = 'http://localhost:5000';
+        let isConnected = false;
+
+        // Verificar conexión inicial
+        async function verificarConexion() {
+            try {
+                const response = await fetch(`${API_URL}/status`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    isConnected = true;
+                    document.getElementById('connStatus').innerHTML = '✅ <strong>Conectado a localhost:5000</strong>';
+                    document.getElementById('connStatus').className = 'connection-status connected';
+                } else {
+                    throw new Error('No connected');
+                }
+            } catch (e) {
+                isConnected = false;
+                document.getElementById('connStatus').innerHTML = '❌ <strong>No conectado</strong> - Verifica que Python esté corriendo en localhost:5000';
+                document.getElementById('connStatus').className = 'connection-status disconnected';
+            }
+        }
+
+        // Verificar conexión al cargar
+        window.addEventListener('load', () => {
+            verificarConexion();
+            // Reintentar cada 5 segundos
+            setInterval(verificarConexion, 5000);
+        });
+
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(el => {
                 el.classList.remove('active');
@@ -424,7 +468,6 @@
             document.getElementById(tab).classList.add('active');
             event.target.classList.add('active');
 
-            // Actualizar datos al abrir pestaña
             if (tab === 'programaciones') {
                 actualizarProgramaciones();
             } else if (tab === 'historial') {
@@ -438,10 +481,7 @@
             numManual.style.display = fuente === 'lista' ? 'block' : 'none';
         }
 
-        // ─────────────────────────────────────────────
         // ENVÍO RÁPIDO
-        // ─────────────────────────────────────────────
-
         async function enviarRapido() {
             const numeros = document.getElementById('numerosRapido').value.trim()
                 .split('\n')
@@ -464,7 +504,7 @@
             document.getElementById('loading').classList.add('show');
 
             try {
-                const response = await fetch('http://localhost:5000/envio-masivo', {
+                const response = await fetch(`${API_URL}/envio-masivo`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -476,7 +516,6 @@
                 });
 
                 const data = await response.json();
-
                 document.getElementById('loading').classList.remove('show');
 
                 if (response.ok) {
@@ -497,10 +536,7 @@
             document.getElementById('claveRapido').value = '';
         }
 
-        // ─────────────────────────────────────────────
         // PROGRAMAR ENVÍO
-        // ─────────────────────────────────────────────
-
         async function programarEnvio() {
             const id = document.getElementById('idPrograma').value.trim();
             const hora = document.getElementById('horaPrograma').value;
@@ -530,7 +566,7 @@
             document.getElementById('loading').classList.add('show');
 
             try {
-                const response = await fetch('http://localhost:5000/programar-envio', {
+                const response = await fetch(`${API_URL}/programar-envio`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -546,7 +582,6 @@
                 });
 
                 const data = await response.json();
-
                 document.getElementById('loading').classList.remove('show');
 
                 if (response.ok) {
@@ -571,15 +606,11 @@
             document.getElementById('listaNumerosProg').value = '';
         }
 
-        // ─────────────────────────────────────────────
         // PROGRAMACIONES Y HISTORIAL
-        // ─────────────────────────────────────────────
-
         async function actualizarProgramaciones() {
             try {
-                const response = await fetch('http://localhost:5000/programaciones');
+                const response = await fetch(`${API_URL}/programaciones`);
                 const data = await response.json();
-
                 const lista = document.getElementById('listaProgramaciones');
 
                 if (Object.keys(data.programaciones).length === 0) {
@@ -595,7 +626,6 @@
                 let html = '';
                 for (const [id, prog] of Object.entries(data.programaciones)) {
                     if (!prog.activo) continue;
-
                     html += `
                         <div class="card">
                             <div class="card-header">
@@ -608,20 +638,16 @@
                                 </div>
                             </div>
                             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0;">
-                                <small style="color: #666;">
-                                    Próxima ejecución: ${new Date(prog.proxima_ejecucion).toLocaleString('es-CO')}
-                                </small>
+                                <small style="color: #666;">Próxima: ${new Date(prog.proxima_ejecucion).toLocaleString('es-CO')}</small>
                             </div>
                             <div style="margin-top: 10px;">
-                                <button class="btn btn-danger" style="padding: 8px 15px; font-size: 12px;" 
-                                    onclick="cancelarPrograma('${id}')">
+                                <button class="btn btn-danger" style="padding: 8px 15px; font-size: 12px;" onclick="cancelarPrograma('${id}')">
                                     ❌ Cancelar
                                 </button>
                             </div>
                         </div>
                     `;
                 }
-
                 lista.innerHTML = html;
             } catch (error) {
                 console.error('Error:', error);
@@ -630,16 +656,15 @@
 
         async function actualizarHistorial() {
             try {
-                const response = await fetch('http://localhost:5000/historial-envios');
+                const response = await fetch(`${API_URL}/historial-envios`);
                 const data = await response.json();
-
                 const lista = document.getElementById('listaHistorial');
 
                 if (!data.historial.length) {
                     lista.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-state-icon">📭</div>
-                            <p>Sin historial de envíos programados</p>
+                            <p>Sin historial de envíos</p>
                         </div>
                     `;
                     return;
@@ -657,13 +682,12 @@
                                 </div>
                             </div>
                             <div style="margin-top: 10px;">
-                                <span class="badge" style="background: #d4edda; color: #155724;">✅ ${entrada.enviados} enviados</span>
-                                <span class="badge" style="background: #f8d7da; color: #721c24;">❌ ${entrada.errores} errores</span>
+                                <span class="badge" style="background: #d4edda; color: #155724;">✅ ${entrada.enviados}</span>
+                                <span class="badge" style="background: #f8d7da; color: #721c24;">❌ ${entrada.errores}</span>
                             </div>
                         </div>
                     `;
                 });
-
                 lista.innerHTML = html;
             } catch (error) {
                 console.error('Error:', error);
@@ -671,33 +695,29 @@
         }
 
         async function cancelarPrograma(id) {
-            const clave = prompt('🔐 Ingresa tu clave de administrador para cancelar:');
+            const clave = prompt('🔐 Ingresa tu clave de administrador:');
             if (!clave) return;
 
             try {
-                const response = await fetch(`http://localhost:5000/cancelar-envio/${id}`, {
+                const response = await fetch(`${API_URL}/cancelar-envio/${id}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ clave_admin: clave })
                 });
 
                 const data = await response.json();
-
                 if (response.ok) {
-                    showAlert('✅ Programación cancelada', 'success');
+                    showAlert('✅ Cancelada', 'success');
                     actualizarProgramaciones();
                 } else {
-                    showAlert(data.error || 'Error al cancelar', 'error');
+                    showAlert(data.error || 'Error', 'error');
                 }
             } catch (error) {
                 showAlert('Error: ' + error.message, 'error');
             }
         }
 
-        // ─────────────────────────────────────────────
         // UTILIDADES
-        // ─────────────────────────────────────────────
-
         function showAlert(message, type) {
             const alert = document.createElement('div');
             alert.className = `alert show alert-${type}`;
