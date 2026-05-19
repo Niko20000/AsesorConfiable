@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Envíos - Banco Caja Social</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 12px 20px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="time"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 150px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-right: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff5252;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #bee5eb;
+        }
+
+        .card {
+            background: #f9f9f9;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .card-title {
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-time {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f0f0f0;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⏰ Gestor de Envíos Automáticos</h1>
+            <p>Banco Caja Social - Programa envíos a horas específicas</p>
+        </div>
+
+        <div class="content">
+            <div class="alert alert-info" id="alertInfo">
+                ℹ️ Aquí puedes enviar mensajes ahora o programarlos para una hora específica
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('envio-rapido')">🚀 Envío Rápido</button>
+                <button class="tab-btn" onclick="switchTab('programar')">⏰ Programar por Hora</button>
+                <button class="tab-btn" onclick="switchTab('programaciones')">📋 Mis Programaciones</button>
+                <button class="tab-btn" onclick="switchTab('historial')">📊 Historial</button>
+            </div>
+
+            <!-- TAB 1: ENVÍO RÁPIDO -->
+            <div id="envio-rapido" class="tab-content active">
+                <h2>🚀 Envío Inmediato</h2>
+                <p style="color: #666; margin-bottom: 20px;">Envía un mensaje ahora a múltiples números</p>
+
+                <div class="form-group">
+                    <label>📱 Números (uno por línea)</label>
+                    <textarea id="numerosRapido" placeholder="57300123456&#10;57300654321&#10;..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>📝 Mensaje</label>
+                    <textarea id="mensajeRapido" placeholder="Escribe tu mensaje aquí..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>🔐 Clave de Administrador</label>
+                    <input type="password" id="claveRapido" placeholder="Ingresa tu clave">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="enviarRapido()">
+                        🚀 Enviar Ahora
+                    </button>
+                    <button class="btn btn-secondary" onclick="limpiarRapido()">
+                        🗑️ Limpiar
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 2: PROGRAMAR -->
+            <div id="programar" class="tab-content">
+                <h2>⏰ Programar Envío Automático</h2>
+                <p style="color: #666; margin-bottom: 20px;">El mensaje se enviará automáticamente a la hora indicada cada día</p>
+
+                <div class="form-group">
+                    <label>📌 Nombre de la Programación</label>
+                    <input type="text" id="idPrograma" placeholder="ej: buenos_dias, oferta_tarde, recordatorio">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>🕐 Hora</label>
+                        <input type="number" id="horaPrograma" min="0" max="23" value="8" placeholder="8">
+                    </div>
+                    <div class="form-group">
+                        <label>:⏱️ Minuto</label>
+                        <input type="number" id="minutoPrograma" min="0" max="59" value="0" placeholder="0">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>📁 Fuente de Números</label>
+                    <select id="fuentePrograma" onchange="cambiarFuente()">
+                        <option value="excel">📊 Desde Excel (numeros.xlsx)</option>
+                        <option value="lista">📱 Números Manuales</option>
+                    </select>
+                </div>
+
+                <div id="numerosManualPrograma" style="display: none;">
+                    <div class="form-group">
+                        <label>📱 Números (uno por línea)</label>
+                        <textarea id="listaNumerosProg" placeholder="57300123456&#10;57300654321"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>📝 Mensaje a Enviar</label>
+                    <textarea id="mensajePrograma" placeholder="Escribe el mensaje que se enviará automáticamente..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>🔐 Clave de Administrador</label>
+                    <input type="password" id="clavePrograma" placeholder="Ingresa tu clave">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="programarEnvio()">
+                        ✅ Programar Envío
+                    </button>
+                    <button class="btn btn-secondary" onclick="limpiarPrograma()">
+                        🗑️ Limpiar
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 3: PROGRAMACIONES ACTIVAS -->
+            <div id="programaciones" class="tab-content">
+                <h2>📋 Mis Programaciones Activas</h2>
+                <div id="listaProgramaciones">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>No hay programaciones activas</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: HISTORIAL -->
+            <div id="historial" class="tab-content">
+                <h2>📊 Historial de Envíos Automáticos</h2>
+                <button class="btn btn-secondary" onclick="actualizarHistorial()" style="margin-bottom: 20px;">
+                    🔄 Actualizar
+                </button>
+                <div id="listaHistorial">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>Sin historial de envíos</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOADING -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 15px; color: #667eea;">Procesando...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            document.getElementById(tab).classList.add('active');
+            event.target.classList.add('active');
+
+            // Actualizar datos al abrir pestaña
+            if (tab === 'programaciones') {
+                actualizarProgramaciones();
+            } else if (tab === 'historial') {
+                actualizarHistorial();
+            }
+        }
+
+        function cambiarFuente() {
+            const fuente = document.getElementById('fuentePrograma').value;
+            const numManual = document.getElementById('numerosManualPrograma');
+            numManual.style.display = fuente === 'lista' ? 'block' : 'none';
+        }
+
+        // ─────────────────────────────────────────────
+        // ENVÍO RÁPIDO
+        // ─────────────────────────────────────────────
+
+        async function enviarRapido() {
+            const numeros = document.getElementById('numerosRapido').value.trim()
+                .split('\n')
+                .map(n => n.trim().replace(/[^\d]/g, ''))
+                .filter(n => n.length > 5);
+
+            const mensaje = document.getElementById('mensajeRapido').value.trim();
+            const clave = document.getElementById('claveRapido').value;
+
+            if (!numeros.length || !mensaje) {
+                showAlert('Completa números y mensaje', 'error');
+                return;
+            }
+
+            if (!clave) {
+                showAlert('Ingresa la clave de administrador', 'error');
+                return;
+            }
+
+            document.getElementById('loading').classList.add('show');
+
+            try {
+                const response = await fetch('http://localhost:5000/envio-masivo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fuente: 'lista',
+                        numeros: numeros,
+                        mensaje: mensaje,
+                        clave_admin: clave
+                    })
+                });
+
+                const data = await response.json();
+
+                document.getElementById('loading').classList.remove('show');
+
+                if (response.ok) {
+                    showAlert(`✅ Enviados: ${data.resumen.enviados} | ❌ Errores: ${data.resumen.errores}`, 'success');
+                    limpiarRapido();
+                } else {
+                    showAlert(data.error || 'Error en el envío', 'error');
+                }
+            } catch (error) {
+                document.getElementById('loading').classList.remove('show');
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        function limpiarRapido() {
+            document.getElementById('numerosRapido').value = '';
+            document.getElementById('mensajeRapido').value = '';
+            document.getElementById('claveRapido').value = '';
+        }
+
+        // ─────────────────────────────────────────────
+        // PROGRAMAR ENVÍO
+        // ─────────────────────────────────────────────
+
+        async function programarEnvio() {
+            const id = document.getElementById('idPrograma').value.trim();
+            const hora = document.getElementById('horaPrograma').value;
+            const minuto = document.getElementById('minutoPrograma').value;
+            const fuente = document.getElementById('fuentePrograma').value;
+            const mensaje = document.getElementById('mensajePrograma').value.trim();
+            const clave = document.getElementById('clavePrograma').value;
+
+            if (!id || !mensaje || !clave) {
+                showAlert('Completa todos los campos requeridos', 'error');
+                return;
+            }
+
+            let numeros_lista = null;
+            if (fuente === 'lista') {
+                numeros_lista = document.getElementById('listaNumerosProg').value.trim()
+                    .split('\n')
+                    .map(n => n.trim().replace(/[^\d]/g, ''))
+                    .filter(n => n.length > 5);
+
+                if (!numeros_lista.length) {
+                    showAlert('Ingresa al menos un número', 'error');
+                    return;
+                }
+            }
+
+            document.getElementById('loading').classList.add('show');
+
+            try {
+                const response = await fetch('http://localhost:5000/programar-envio', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clave_admin: clave,
+                        id_programa: id,
+                        hora: parseInt(hora),
+                        minuto: parseInt(minuto),
+                        fuente: fuente,
+                        archivo: fuente === 'excel' ? 'numeros.xlsx' : null,
+                        numeros_lista: numeros_lista,
+                        mensaje: mensaje
+                    })
+                });
+
+                const data = await response.json();
+
+                document.getElementById('loading').classList.remove('show');
+
+                if (response.ok) {
+                    showAlert(`✅ Programación creada! Se ejecutará a las ${hora}:${minuto.toString().padStart(2, '0')}`, 'success');
+                    limpiarPrograma();
+                    setTimeout(() => switchTab('programaciones'), 1000);
+                } else {
+                    showAlert(data.error || 'Error al programar', 'error');
+                }
+            } catch (error) {
+                document.getElementById('loading').classList.remove('show');
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        function limpiarPrograma() {
+            document.getElementById('idPrograma').value = '';
+            document.getElementById('horaPrograma').value = '8';
+            document.getElementById('minutoPrograma').value = '0';
+            document.getElementById('mensajePrograma').value = '';
+            document.getElementById('clavePrograma').value = '';
+            document.getElementById('listaNumerosProg').value = '';
+        }
+
+        // ─────────────────────────────────────────────
+        // PROGRAMACIONES Y HISTORIAL
+        // ─────────────────────────────────────────────
+
+        async function actualizarProgramaciones() {
+            try {
+                const response = await fetch('http://localhost:5000/programaciones');
+                const data = await response.json();
+
+                const lista = document.getElementById('listaProgramaciones');
+
+                if (Object.keys(data.programaciones).length === 0) {
+                    lista.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <p>No hay programaciones activas</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                for (const [id, prog] of Object.entries(data.programaciones)) {
+                    if (!prog.activo) continue;
+
+                    html += `
+                        <div class="card">
+                            <div class="card-header">
+                                <div>
+                                    <div class="card-title">${id}</div>
+                                    <small style="color: #666;">${prog.mensaje}</small>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div class="badge badge-time">🕐 ${prog.hora}:${prog.minuto.toString().padStart(2, '0')}</div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0;">
+                                <small style="color: #666;">
+                                    Próxima ejecución: ${new Date(prog.proxima_ejecucion).toLocaleString('es-CO')}
+                                </small>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <button class="btn btn-danger" style="padding: 8px 15px; font-size: 12px;" 
+                                    onclick="cancelarPrograma('${id}')">
+                                    ❌ Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                lista.innerHTML = html;
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function actualizarHistorial() {
+            try {
+                const response = await fetch('http://localhost:5000/historial-envios');
+                const data = await response.json();
+
+                const lista = document.getElementById('listaHistorial');
+
+                if (!data.historial.length) {
+                    lista.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <p>Sin historial de envíos programados</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                data.historial.slice(-20).reverse().forEach(entrada => {
+                    const fecha = new Date(entrada.timestamp).toLocaleString('es-CO');
+                    html += `
+                        <div class="card">
+                            <div class="card-header">
+                                <div>
+                                    <div class="card-title">${entrada.id}</div>
+                                    <small style="color: #666;">${fecha}</small>
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <span class="badge" style="background: #d4edda; color: #155724;">✅ ${entrada.enviados} enviados</span>
+                                <span class="badge" style="background: #f8d7da; color: #721c24;">❌ ${entrada.errores} errores</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                lista.innerHTML = html;
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function cancelarPrograma(id) {
+            const clave = prompt('🔐 Ingresa tu clave de administrador para cancelar:');
+            if (!clave) return;
+
+            try {
+                const response = await fetch(`http://localhost:5000/cancelar-envio/${id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clave_admin: clave })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('✅ Programación cancelada', 'success');
+                    actualizarProgramaciones();
+                } else {
+                    showAlert(data.error || 'Error al cancelar', 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        // ─────────────────────────────────────────────
+        // UTILIDADES
+        // ─────────────────────────────────────────────
+
+        function showAlert(message, type) {
+            const alert = document.createElement('div');
+            alert.className = `alert show alert-${type}`;
+            alert.textContent = message;
+            document.querySelector('.content').insertBefore(alert, document.querySelector('.tabs'));
+            setTimeout(() => alert.remove(), 5000);
+        }
+    </script>
+</body>
+</html>

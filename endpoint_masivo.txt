@@ -1,0 +1,96 @@
+# ─────────────────────────────────────────────
+# AGREGAR ESTO AL FINAL DE bot.py, antes del if __name__
+# ─────────────────────────────────────────────
+
+from envio_masivo import EnvioMasivo
+
+envio_masivo = EnvioMasivo(servidor_url=os.getenv("BOT_SERVER_URL", "http://localhost:3000"))
+
+@app.route("/envio-masivo", methods=["POST"])
+def envio_masivo_endpoint():
+    """
+    Endpoint para enviar mensajes masivos.
+    
+    POST /envio-masivo
+    {
+        "fuente": "excel" | "lista",
+        "archivo": "numeros.xlsx" (si fuente es excel),
+        "numeros": ["573001234567", "573005678901"] (si fuente es lista),
+        "mensaje": "Tu mensaje aquí",
+        "personalizado": false,
+        "clave_admin": "tu_clave_secreta"
+    }
+    """
+    data = request.json
+    clave = data.get("clave_admin")
+    
+    # SEGURIDAD: verificar contraseña (cámbiala a algo seguro)
+    CLAVE_ADMIN = os.getenv("CLAVE_ENVIO_MASIVO", "cambiar_esto_por_segura")
+    
+    if clave != CLAVE_ADMIN:
+        return jsonify({"error": "Clave de administrador incorrecta"}), 403
+    
+    fuente = data.get("fuente", "lista")
+    mensaje = data.get("mensaje", "")
+    personalizado = data.get("personalizado", False)
+    
+    if not mensaje:
+        return jsonify({"error": "El mensaje es requerido"}), 400
+    
+    try:
+        # Obtener números
+        if fuente == "excel":
+            archivo = data.get("archivo", "numeros.xlsx")
+            numeros = envio_masivo.leer_excel(archivo)
+        elif fuente == "lista":
+            numeros_lista = data.get("numeros", [])
+            numeros = envio_masivo.leer_lista_texto(numeros_lista)
+        else:
+            return jsonify({"error": "Fuente debe ser 'excel' o 'lista'"}), 400
+        
+        if not numeros:
+            return jsonify({"error": "No se encontraron números"}), 400
+        
+        # Enviar mensajes
+        if personalizado and fuente == "excel":
+            # Aquí puedes definir tu plantilla personalizada
+            resultado = envio_masivo.enviar_con_personalizacion(numeros, plantilla_personalizada)
+        else:
+            resultado = envio_masivo.enviar_masivo(numeros, mensaje, esperar_entre=True)
+        
+        return jsonify({
+            "success": True,
+            "resumen": resultado,
+            "timestamp": datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/envio-masivo/status", methods=["GET"])
+def envio_masivo_status():
+    """Ver estado de los últimos envíos masivos"""
+    return jsonify({
+        "enviados": len(envio_masivo.enviados),
+        "errores": len(envio_masivo.errores),
+        "ultimos_envios": envio_masivo.enviados[-10:],
+        "ultimos_errores": envio_masivo.errores[-10:]
+    })
+
+
+def plantilla_personalizada(usuario):
+    """Plantilla personalizada para mensajes con datos del usuario"""
+    return f"""¡Hola {usuario.get('nombre', 'Usuario')}! 👋
+
+Soy *{NOMBRE_ASESOR}*, {CARGO_ASESOR} del *{BANCO}*.
+
+Tengo una oferta especial para ti:
+
+✅ Créditos hasta $50 millones
+✅ Tasas desde el 14% E.A.
+✅ Seguros protegidos
+
+¿Te gustaría saber más?
+
+{MSG_MENU_INICIAL}"""
